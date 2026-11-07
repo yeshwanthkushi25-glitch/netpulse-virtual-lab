@@ -6,7 +6,7 @@ API Gateway + Lambda + DynamoDB backend in memory.
 
 Usage:
     python scripts/local_demo.py          # Run local server and API
-    python scripts/local_demo.py --demo   # Run server with automated failure/recovery demo
+    python scripts/local_demo.py --demo   # Run server with automated multi-phase demo
 """
 
 import argparse
@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 
 STORE: dict[str, dict] = {}
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+VALID_STATUSES = {"up", "down", "degraded"}
 
 
 def utc_now():
@@ -33,7 +34,12 @@ def utc_now():
 
 def make_item(source: str, target: str, status: str, latency_ms: float | None = None, message: str = ""):
     if not message:
-        message = "VMs are connected and reachable." if status == "up" else "Target host is unreachable."
+        if status == "up":
+            message = "VMs are connected and reachable."
+        elif status == "degraded":
+            message = "Transient packet latency spike detected."
+        else:
+            message = "Target host is unreachable."
     now = utc_now()
     return {
         "connection_id": f"{source}#{target}",
@@ -57,8 +63,8 @@ def validate_payload(data: dict):
     if not isinstance(target, str) or not IDENTIFIER_RE.fullmatch(target):
         raise ValueError("Invalid 'target' identifier.")
     status = data.get("status")
-    if status not in ("up", "down"):
-        raise ValueError("status must be 'up' or 'down'.")
+    if status not in VALID_STATUSES:
+        raise ValueError(f"status must be one of: {', '.join(sorted(VALID_STATUSES))}.")
     latency = data.get("latency_ms")
     if latency is not None:
         if isinstance(latency, bool) or not isinstance(latency, (int, float)):
@@ -66,7 +72,8 @@ def validate_payload(data: dict):
         if latency < 0 or latency > 3600000:
             raise ValueError("latency_ms out of range.")
         latency = round(float(latency), 3)
-    message = data.get("message", "Target reachable" if status == "up" else "Target unreachable")
+    default_msg = "Target reachable" if status == "up" else ("Link degraded" if status == "degraded" else "Target unreachable")
+    message = data.get("message", default_msg)
     checked_at = data.get("checked_at") or utc_now()
 
     return {
@@ -91,7 +98,7 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
     def _send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, x-api-key")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, x-api-key, Authorization")
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
 
     def _send_json(self, status_code: int, payload: dict):
@@ -112,8 +119,15 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
+        if path == "/connections":
+            self._send_json(200, {"ok": True, "connections": list(STORE.values()), "count": len(STORE)})
+            return
+
         if path == "/status":
             params = urllib.parse.parse_qs(parsed.query)
+            if not params:
+                self._send_json(200, {"ok": True, "connections": list(STORE.values()), "count": len(STORE)})
+                return
             source = params.get("source", ["vm-a"])[0]
             target = params.get("target", ["vm-b"])[0]
             key = f"{source}#{target}"
@@ -137,7 +151,6 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
             relative_path = "index.html"
 
         file_path = os.path.abspath(os.path.join(self.dashboard_dir, relative_path))
-        # Prevent directory traversal
         if not file_path.startswith(self.dashboard_dir) or not os.path.exists(file_path) or os.path.isdir(file_path):
             self.send_error(404, f"File not found: {relative_path}")
             return
@@ -168,7 +181,14 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
                 data = json.loads(raw_body)
                 item = validate_payload(data)
                 STORE[item["connection_id"]] = item
-                status_color = "\033[92m● UP\033[0m" if item["status"] == "up" else "\033[91m● DOWN\033[0m"
+
+                if item["status"] == "up":
+                    status_color = "\033[92m● UP\033[0m"
+                elif item["status"] == "degraded":
+                    status_color = "\033[93m● DEGRADED\033[0m"
+                else:
+                    status_color = "\033[91m● DOWN\033[0m"
+
                 latency_str = f"{item['latency_ms']} ms" if item["latency_ms"] is not None else "No response"
                 print(f"  [UPDATE] {item['source']} -> {item['target']}: {status_color} ({latency_str}) - {item['message']}")
                 self._send_json(200, {"ok": True, "item": item})
@@ -182,32 +202,38 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
 
 
 def run_automated_demo(source="vm-a", target="vm-b"):
-    """Demonstrates: Green connected -> Simulated Link Failure -> Recovery."""
+    """Demonstrates: Green connected -> Degraded Jitter -> Link Failure -> Recovery."""
     key = f"{source}#{target}"
     time.sleep(1.0)
     print("\n" + "=" * 65)
     print("  🚀 NETPULSE AUTOMATED DEMO SEQUENCE INITIATED")
     print("=" * 65)
 
-    # Initial Healthy State
-    print("\n[Step 1/3] Normal Connectivity (Green Light)")
-    STORE[key] = make_item(source, target, "up", 1.34, "VM A and VM B are connected via VirtualBox network adapter.")
-    print(f"  Status stored: UP (1.34 ms). Dashboard showing operational light.")
+    # Phase 1: Operational Green
+    print("\n[Phase 1/4] Normal Reachability (Green Light)")
+    STORE[key] = make_item(source, target, "up", 1.34, "VM A and VM B connected via VirtualBox host-only adapter.")
+    print("  Status stored: UP (1.34 ms). Dashboard showing operational light.")
+    time.sleep(6.0)
+
+    # Phase 2: Transient Jitter / Degraded State (Amber Light)
+    print("\n[Phase 2/4] Transient Jitter Spike / Packet Loss Warning (Amber Light)")
+    STORE[key] = make_item(source, target, "degraded", 48.6, "Flap damping: Single packet loss or latency spike detected.")
+    print("  Status stored: DEGRADED (48.6 ms). Dashboard showing warning amber light.")
+    time.sleep(6.0)
+
+    # Phase 3: Link Cut (Red Light)
+    print("\n[Phase 3/4] Link Severed / Virtual Cable Unplugged (Red Alert Light)")
+    STORE[key] = make_item(source, target, "down", None, "Destination Host Unreachable. Connection lost between lab VMs.")
+    print("  Status stored: DOWN (None). Dashboard showing critical red light.")
     time.sleep(7.0)
 
-    # Simulated Failure
-    print("\n[Step 2/3] Simulating Link Cut / Cable Unplugged (Red Light)")
-    STORE[key] = make_item(source, target, "down", None, "Destination Host Unreachable. Connection lost between VM A and VM B.")
-    print(f"  Status stored: DOWN (None). Dashboard showing critical red light.")
-    time.sleep(8.0)
-
-    # Recovery
-    print("\n[Step 3/3] Restoring Connectivity / Cable Plugged Back (Recovery to Green)")
-    STORE[key] = make_item(source, target, "up", 1.82, "Target reachable. Network link restored between lab VMs.")
-    print(f"  Status stored: UP (1.82 ms). Dashboard recovered to green light.")
+    # Phase 4: Recovery (Back to Green)
+    print("\n[Phase 4/4] Connection Restored (Recovery to Green Light)")
+    STORE[key] = make_item(source, target, "up", 1.55, "Target reachable. Network link re-established.")
+    print("  Status stored: UP (1.55 ms). Dashboard recovered to green light.")
     print("\n" + "=" * 65)
-    print("  ✅ DEMO COMPLETED: Link recovery verified.")
-    print("  The local server remains active. You can test live pings or refresh the dashboard.")
+    print("  ✅ FULL DEMONSTRATION CYCLE COMPLETE")
+    print("  The local server remains active for interactive grading.")
     print("=" * 65 + "\n")
 
 
@@ -220,13 +246,13 @@ def main():
     parser = argparse.ArgumentParser(description="NetPulse Local Dashboard & Mock API Server")
     parser.add_argument("--port", type=int, default=8000, help="Server port (default: 8000)")
     parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
-    parser.add_argument("--demo", action="store_true", help="Run automated green -> failure -> recovery demo")
+    parser.add_argument("--demo", action="store_true", help="Run automated green -> degraded -> down -> recovery demo")
     parser.add_argument("--open", action="store_true", help="Open default web browser automatically")
     parser.add_argument("--source", default="vm-a", help="Default source VM name (default: vm-a)")
     parser.add_argument("--target", default="vm-b", help="Default target VM name (default: vm-b)")
     args = parser.parse_args()
 
-    # Pre-populate initial store state so the dashboard has immediate data
+    # Pre-populate store
     key = f"{args.source}#{args.target}"
     STORE[key] = make_item(args.source, args.target, "up", 1.25, "VirtualBox lab link operational.")
 

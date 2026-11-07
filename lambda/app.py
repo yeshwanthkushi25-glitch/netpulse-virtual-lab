@@ -1,7 +1,7 @@
 """NetPulse API Gateway Lambda handler.
 
-Accepts connectivity reports and stores the latest report per source/target pair.
-Only boto3 (preinstalled in AWS Lambda) is required in AWS; tests use a fake table.
+Accepts reachability telemetry, enforces security & validation contracts,
+and persists real-time connectivity status in Amazon DynamoDB.
 """
 
 import base64
@@ -15,13 +15,20 @@ from decimal import Decimal
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
+
 TABLE_NAME = os.environ.get("TABLE_NAME", "netpulse-status")
+API_KEY = os.environ.get("API_KEY")  # Optional authorization key
 IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+VALID_STATUSES = {"up", "down", "degraded"}
 _TABLE = None
 
 
 class ValidationError(ValueError):
-    """A client supplied an invalid status report."""
+    """Client supplied an invalid status report."""
+
+
+class AuthenticationError(Exception):
+    """Client failed API key authentication."""
 
 
 def _response(status_code, payload):
@@ -31,8 +38,8 @@ def _response(status_code, payload):
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": os.environ.get("ALLOWED_ORIGIN", "*"),
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Cache-Control": "no-store",
+            "Access-Control-Allow-Headers": "Content-Type, x-api-key, Authorization",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
         },
         "body": json.dumps(payload, default=_json_default),
     }
@@ -48,9 +55,19 @@ def _table():
     global _TABLE
     if _TABLE is None:
         import boto3
-
         _TABLE = boto3.resource("dynamodb").Table(TABLE_NAME)
     return _TABLE
+
+
+def _check_auth(event):
+    if not API_KEY:
+        return  # Open access mode for local or classroom evaluations
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    token = headers.get("x-api-key") or headers.get("authorization")
+    if token and token.startswith("Bearer "):
+        token = token[7:]
+    if token != API_KEY:
+        raise AuthenticationError("Unauthorized: Invalid or missing API key.")
 
 
 def _identifier(value, field):
@@ -74,15 +91,15 @@ def _timestamp(value):
 
 
 def validate_status_payload(data):
-    """Validate a report and return the storage item without Decimal conversion."""
+    """Validate a telemetry report and return formatted item."""
     if not isinstance(data, dict):
         raise ValidationError("The JSON body must be an object.")
 
     source = _identifier(data.get("source"), "source")
     target = _identifier(data.get("target"), "target")
     status = data.get("status")
-    if status not in ("up", "down"):
-        raise ValidationError("status must be either 'up' or 'down'.")
+    if status not in VALID_STATUSES:
+        raise ValidationError(f"status must be one of: {', '.join(sorted(VALID_STATUSES))}.")
 
     latency = data.get("latency_ms")
     if latency is not None:
@@ -92,11 +109,12 @@ def validate_status_payload(data):
             raise ValidationError("latency_ms must be between 0 and 3600000.")
         latency = round(float(latency), 3)
 
-    message = data.get("message", "Target reachable" if status == "up" else "Target unreachable")
+    default_msg = "Target reachable" if status == "up" else ("Link degraded" if status == "degraded" else "Target unreachable")
+    message = data.get("message", default_msg)
     if not isinstance(message, str) or len(message) > 300:
         raise ValidationError("message must be a string of at most 300 characters.")
 
-    return {
+    item = {
         "connection_id": f"{source}#{target}",
         "source": source,
         "target": target,
@@ -107,9 +125,14 @@ def validate_status_payload(data):
         "received_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
     }
 
+    # Optional history tracking for latency trend visualization
+    if "history" in data and isinstance(data["history"], list):
+        item["history"] = data["history"][:20]
+
+    return item
+
 
 def _dynamodb_item(item):
-    # DynamoDB rejects Python floats; JSON round-tripping converts only floats to Decimal.
     return json.loads(json.dumps(item), parse_float=Decimal)
 
 
@@ -132,15 +155,23 @@ def _method_and_path(event):
 
 
 def handler(event, context):
-    """Handle HTTP API routes GET /status and POST /status."""
+    """Handle HTTP API routes GET /status, POST /status, and GET /connections."""
     method, path = _method_and_path(event)
     try:
         if method == "OPTIONS":
             return _response(204, {})
+
+        if path.endswith("/connections"):
+            # Multi-connection overview route
+            scan_res = _table().scan(Limit=50)
+            items = scan_res.get("Items", [])
+            return _response(200, {"ok": True, "connections": items, "count": len(items)})
+
         if not path.endswith("/status"):
             return _response(404, {"ok": False, "error": "Route not found."})
 
         if method == "POST":
+            _check_auth(event)
             item = validate_status_payload(_parse_body(event))
             _table().put_item(Item=_dynamodb_item(item))
             LOGGER.info("Stored %s status for %s", item["status"], item["connection_id"])
@@ -148,8 +179,17 @@ def handler(event, context):
 
         if method == "GET":
             params = event.get("queryStringParameters") or {}
-            source = _identifier(params.get("source"), "source")
-            target = _identifier(params.get("target"), "target")
+            source = params.get("source")
+            target = params.get("target")
+
+            # If no parameters specified, return all monitored connections
+            if not source and not target:
+                scan_res = _table().scan(Limit=50)
+                items = scan_res.get("Items", [])
+                return _response(200, {"ok": True, "connections": items, "count": len(items)})
+
+            source = _identifier(source, "source")
+            target = _identifier(target, "target")
             connection_id = f"{source}#{target}"
             result = _table().get_item(Key={"connection_id": connection_id}, ConsistentRead=True)
             item = result.get("Item")
@@ -165,6 +205,8 @@ def handler(event, context):
             return _response(200, {"ok": True, "item": item})
 
         return _response(405, {"ok": False, "error": "Method not allowed."})
+    except AuthenticationError as exc:
+        return _response(401, {"ok": False, "error": str(exc)})
     except ValidationError as exc:
         return _response(400, {"ok": False, "error": str(exc)})
     except Exception:

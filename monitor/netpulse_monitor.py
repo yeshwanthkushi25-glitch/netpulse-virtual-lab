@@ -2,6 +2,7 @@
 """Check VM reachability and report the result to NetPulse.
 
 Uses only the Python standard library so it can run directly on lab VMs.
+Includes flap damping / retry thresholds to avoid false alarms from transient jitter.
 """
 
 import argparse
@@ -74,26 +75,51 @@ def run_ping(target, timeout=2.0, system=None):
     return False, None, diagnostic
 
 
-def build_result(source, target, timeout=2.0, simulate=None):
+def build_result(source, target, timeout=2.0, simulate=None, consecutive_failures=0, threshold=1):
     if simulate:
+        latency = 1.25 if simulate == "up" else (45.8 if simulate == "degraded" else None)
+        msg_map = {
+            "up": "Simulated reachable link",
+            "degraded": "Simulated link degradation (Packet latency spike)",
+            "down": "Simulated failed link",
+        }
         return CheckResult(
             source=source,
             target=target,
             status=simulate,
             checked_at=utc_now(),
-            latency_ms=1.25 if simulate == "up" else None,
-            message="Simulated reachable link" if simulate == "up" else "Simulated failed link",
+            latency_ms=latency,
+            message=msg_map.get(simulate, "Simulated status"),
         )
+
     is_up, latency, message = run_ping(target, timeout)
-    return CheckResult(source, target, "up" if is_up else "down", utc_now(), latency, message)
+    if is_up:
+        return CheckResult(source, target, "up", utc_now(), latency, message)
+
+    # Flap damping: if consecutive failures haven't reached threshold, report degraded
+    if consecutive_failures < threshold:
+        return CheckResult(
+            source=source,
+            target=target,
+            status="degraded",
+            checked_at=utc_now(),
+            latency_ms=None,
+            message=f"Transient drop detected ({consecutive_failures}/{threshold}): {message}",
+        )
+
+    return CheckResult(source, target, "down", utc_now(), latency, message)
 
 
-def send_status(api_url, result, timeout=10):
+def send_status(api_url, result, api_key=None, timeout=10):
     endpoint = f"{api_url.rstrip('/')}/status"
+    headers = {"Content-Type": "application/json", "User-Agent": "NetPulse-Monitor/1.0"}
+    if api_key:
+        headers["x-api-key"] = api_key
+
     request = urllib.request.Request(
         endpoint,
         data=json.dumps(asdict(result)).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": "NetPulse-Monitor/1.0"},
+        headers=headers,
         method="POST",
     )
     try:
@@ -114,11 +140,13 @@ def parse_args(argv=None):
     parser.add_argument("--target", default=os.environ.get("NETPULSE_TARGET"), help="VM B hostname or IP address")
     parser.add_argument("--source", default=os.environ.get("NETPULSE_SOURCE", socket.gethostname()), help="VM A display name")
     parser.add_argument("--api-url", default=os.environ.get("NETPULSE_API_URL"), help="API base URL, without /status")
+    parser.add_argument("--api-key", default=os.environ.get("NETPULSE_API_KEY"), help="Optional API key for authorization")
     parser.add_argument("--interval", type=float, default=float(os.environ.get("NETPULSE_INTERVAL", "10")), help="Seconds between checks")
     parser.add_argument("--timeout", type=float, default=2.0, help="Ping timeout in seconds")
+    parser.add_argument("--consecutive-failures", type=int, default=1, help="Failures required before marking DOWN (flap damping)")
     parser.add_argument("--once", action="store_true", help="Run one check and exit")
     parser.add_argument("--dry-run", action="store_true", help="Print JSON without sending it")
-    parser.add_argument("--simulate", choices=("up", "down"), help="Simulate a result instead of running ping")
+    parser.add_argument("--simulate", choices=("up", "down", "degraded"), help="Simulate a result instead of running ping")
     args = parser.parse_args(argv)
     if not args.target:
         parser.error("--target or NETPULSE_TARGET is required")
@@ -131,15 +159,28 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
+    fail_count = 0
     try:
         while True:
             try:
-                result = build_result(args.source, args.target, args.timeout, args.simulate)
+                # Test ping to track fail_count
+                if not args.simulate:
+                    is_up, _, _ = run_ping(args.target, args.timeout)
+                    fail_count = 0 if is_up else (fail_count + 1)
+
+                result = build_result(
+                    source=args.source,
+                    target=args.target,
+                    timeout=args.timeout,
+                    simulate=args.simulate,
+                    consecutive_failures=fail_count,
+                    threshold=args.consecutive_failures,
+                )
                 payload = asdict(result)
                 if args.dry_run:
                     print(json.dumps(payload, indent=2))
                 else:
-                    send_status(args.api_url, result)
+                    send_status(args.api_url, result, api_key=args.api_key)
                     print(json.dumps(payload), flush=True)
             except (RuntimeError, ValueError) as exc:
                 print(f"NetPulse error: {exc}", file=sys.stderr, flush=True)

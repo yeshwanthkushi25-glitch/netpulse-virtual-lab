@@ -178,9 +178,29 @@ OK
 
 ---
 
-## 5. Challenges and Conclusion
+## 5. Comprehensive Pros, Cons, Solved Limitations, and Conclusion
 
-### Challenges Encountered and Solutions
+### Project Strengths (PROS)
+1. **100% Serverless & Zero Idle Cost**: Leverages AWS Lambda, API Gateway HTTP API v2, DynamoDB on-demand, and Amazon S3 static website hosting with zero fixed maintenance expenses.
+2. **Glanceable Real-Time Telemetry**: Replaces ephemeral, terminal-confined ICMP ping outputs with an illuminated cloud traffic light.
+3. **Zero-Dependency Monitor**: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.
+4. **Adaptive Cross-Platform Portability**: Dynamically normalizes ping syntax between Windows (`-n`, `-w`) and Linux/macOS (`-c`, `-W`).
+5. **Resilient Offline Demo Rig**: Allows full evaluation and grading without cloud credentials or internet connectivity via local mock server.
+6. **Strong Read Consistency**: Eliminates read-after-write replication delay in DynamoDB via `ConsistentRead=True`.
+7. **Sub-Second Automated Test Suite**: 34 automated unit and contract tests executing in 0.005 seconds with 100% pass rate.
+
+### Identified Limitations (CONS) and How They Were Solved
+
+| Identified Limitation (CON) | Technical Risk / Impact | Engineered Solution Implemented in NetPulse |
+| :--- | :--- | :--- |
+| **1. Fixed Polling Lag** | 10s fixed polling delayed status change visibility. | Upgraded client to adaptive fast polling (2.5–5s), added instant manual refresh button, and visual countdown pulse. |
+| **2. Single-Pair Hardcoding** | Initial prototype only monitored vm-a -> vm-b. | Engineered multi-connection registry in Lambda and added `GET /connections` endpoint to scan and monitor multiple VM pairs. |
+| **3. Lack of Historical Trends** | Only latest check was saved; latency spikes were lost. | Added dynamic 10-sample Latency Sparkline Bar Chart and real-time Uptime Reliability % counter on dashboard. |
+| **4. Network Jitter Flapping** | Single dropped packet caused false red alert alarms. | Built Flap Damping Retry Engine (`--consecutive-failures`) and added intermediate Amber **DEGRADED** warning state. |
+| **5. Open Ingestion Route** | `POST /status` accepted unauthenticated submissions. | Added optional API key / Bearer token validation (`x-api-key`) in Lambda and Monitor, returning HTTP 401 if invalid. |
+| **6. Unattended Monitoring** | Instructors looking away missed visual alerts. | Integrated Web Audio API synthesizer in dashboard to play pleasant chime on UP and audible alert tone on DOWN. |
+
+### Key Deployment Challenges and Solutions
 1. **AWS Learner Lab Permission Restrictions**:
    - *Challenge*: Learner Lab environments restrict the creation of arbitrary IAM roles and polices (`iam:CreateRole` denied).
    - *Solution*: Designed the CloudFormation templates with conditional logic to attach the pre-existing `LabRole` (`arn:aws:iam::<AccountId>:role/LabRole`), ensuring frictionless deployment in educational sandbox accounts.

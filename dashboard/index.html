@@ -16,31 +16,36 @@
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <span>NetPulse</span>
       </a>
-      <div class="lab-badge"><span></span> VIRTUAL LAB · LIVE</div>
+      <div class="top-actions">
+        <button id="btn-audio" type="button" class="audio-toggle" title="Toggle audio chime for status changes">
+          <span id="audio-icon">🔔</span> Audio Alerts: <strong id="audio-state">ON</strong>
+        </button>
+        <div class="lab-badge"><span></span> VIRTUAL LAB · LIVE</div>
+      </div>
     </header>
 
     <section class="hero" aria-labelledby="page-title">
-      <p class="eyebrow">NETWORK TRAFFIC LIGHT</p>
-      <h1 id="page-title">Connection status,<br><span>at a glance.</span></h1>
-      <p class="intro">A shared view of reachability between your lab machines. Green means connected. Red means the link needs attention.</p>
+      <p class="eyebrow">SR UNIVERSITY · CLOUD COMPUTING (25CAI102PC205)</p>
+      <h1 id="page-title">Network Traffic Light,<br><span>at cloud scale.</span></h1>
+      <p class="intro">A shared, real-time telemetry dashboard for VirtualBox lab machines. Transforms command-line ICMP ping output into an instantaneous visual traffic light.</p>
     </section>
 
     <section class="monitor-card" aria-label="Virtual machine connection monitor">
       <div class="route-row">
         <div class="machine">
-          <span class="machine-label">SOURCE</span>
+          <span class="machine-label">SOURCE VM</span>
           <strong id="source">vm-a</strong>
-          <span class="machine-subtitle">Monitor VM</span>
+          <span class="machine-subtitle">Monitor Host (192.168.56.101)</span>
         </div>
         <div class="route" aria-hidden="true">
           <span class="route-node"></span><span class="route-line"></span>
-          <span class="route-packet"></span>
+          <span id="route-packet" class="route-packet"></span>
           <span class="route-line"></span><span class="route-node"></span>
         </div>
         <div class="machine machine-right">
-          <span class="machine-label">TARGET</span>
+          <span class="machine-label">TARGET VM</span>
           <strong id="target">vm-b</strong>
-          <span class="machine-subtitle">Destination VM</span>
+          <span class="machine-subtitle">Destination Host (192.168.56.102)</span>
         </div>
       </div>
 
@@ -54,6 +59,24 @@
         <p id="status-message">The first connectivity check will appear here.</p>
       </div>
 
+      <div class="telemetry-bar">
+        <div class="trend-section">
+          <span class="trend-label">RECENT LATENCY TELEMETRY (LAST 10 CHECKS):</span>
+          <div id="latency-sparkline" class="sparkline-wrap">
+            <!-- Dynamic latency history bars populated by app.js -->
+            <div class="spark-bar up" style="height: 40%"></div>
+            <div class="spark-bar up" style="height: 45%"></div>
+            <div class="spark-bar up" style="height: 38%"></div>
+            <div class="spark-bar up" style="height: 50%"></div>
+            <div class="spark-bar up" style="height: 42%"></div>
+          </div>
+        </div>
+        <div class="uptime-badge">
+          <span>UPTIME RELIABILITY:</span>
+          <strong id="uptime-val">100%</strong>
+        </div>
+      </div>
+
       <dl class="metrics">
         <div><dt>Last checked</dt><dd id="checked-at">—</dd></div>
         <div><dt>Round-trip time</dt><dd id="latency">—</dd></div>
@@ -63,13 +86,16 @@
       <div class="sim-panel" aria-label="Demo simulation controls">
         <div class="sim-header">
           <span class="sim-tag">INTERACTIVE EXPO & DEMO CONTROLS</span>
-          <span class="sim-note">Trigger real-time state transition on AWS/Local</span>
+          <span class="sim-note">Click buttons to trigger real-time state changes on AWS / Local</span>
         </div>
         <div class="sim-buttons">
-          <button id="btn-simulate-up" type="button" class="sim-btn sim-up" title="Simulate link restored">
+          <button id="btn-simulate-up" type="button" class="sim-btn sim-up" title="Simulate link restored (Green)">
             <span class="sim-icon">●</span> Link Operational (Green)
           </button>
-          <button id="btn-simulate-down" type="button" class="sim-btn sim-down" title="Simulate link severed">
+          <button id="btn-simulate-degraded" type="button" class="sim-btn sim-degraded" title="Simulate packet latency spike / jitter (Amber)">
+            <span class="sim-icon">●</span> Simulate Degraded (Amber)
+          </button>
+          <button id="btn-simulate-down" type="button" class="sim-btn sim-down" title="Simulate link severed (Red)">
             <span class="sim-icon">●</span> Simulate Link Cut (Red)
           </button>
         </div>
@@ -78,10 +104,12 @@
 
     <footer class="footer">
       <p><span id="refresh-dot" class="refresh-dot"></span><span id="refresh-label">Checking for updates…</span></p>
-      <button id="refresh-button" type="button">Refresh now <span aria-hidden="true">↻</span></button>
+      <div class="footer-actions">
+        <button id="refresh-button" type="button">Refresh now <span aria-hidden="true">↻</span></button>
+      </div>
     </footer>
 
-    <p class="course">SR UNIVERSITY · CLOUD COMPUTING · TEAM NETPULSE</p>
+    <p class="course">SR UNIVERSITY · CLOUD COMPUTING (25CAI102PC205) · PROJECT NO. 33 · TEAM NETPULSE</p>
   </main>
 </body>
 </html>

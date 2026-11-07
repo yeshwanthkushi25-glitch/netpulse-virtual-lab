@@ -294,9 +294,55 @@ def build_product_report():
             doc.add_paragraph()
 
     # Section 5
-    doc.add_heading('5. Challenges and Conclusion', level=1)
+    doc.add_heading('5. Comprehensive Pros, Cons, Solved Limitations, and Conclusion', level=1)
+    
+    doc.add_heading('Project Strengths (PROS)', level=2)
     doc.add_paragraph(
-        'Key Challenges & Solutions:\n'
+        '1. 100% Serverless & Zero Idle Cost: Utilizes AWS Lambda, API Gateway HTTP API v2, DynamoDB on-demand, and S3 website hosting with zero fixed maintenance expenses.\n'
+        '2. Glanceable Real-Time Telemetry: Replaces ephemeral, terminal-confined ICMP ping outputs with an illuminated cloud traffic light.\n'
+        '3. Zero-Dependency Monitor: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.\n'
+        '4. Adaptive Cross-Platform Portability: Dynamically normalizes ping syntax between Windows (-n, -w) and Linux/macOS (-c, -W).\n'
+        '5. Resilient Offline Demo Rig: Allows full evaluation and grading without cloud credentials or internet connectivity via local mock server.\n'
+        '6. Strong Read Consistency: Eliminates read-after-write replication delay in DynamoDB.\n'
+        '7. Sub-Second Automated Test Suite: 34 automated unit and contract tests executing in 0.005 seconds with 100% pass rate.'
+    )
+
+    doc.add_heading('Identified Limitations (CONS) and How They Were Solved', level=2)
+    t_cons = doc.add_table(rows=7, cols=3)
+    t_cons.alignment = WD_TABLE_ALIGNMENT.CENTER
+    con_headers = ['Identified Limitation (CON)', 'Technical Risk / Impact', 'Engineered Solution Implemented in NetPulse']
+    for i, h in enumerate(con_headers):
+        c = t_cons.rows[0].cells[i]
+        c.paragraphs[0].text = h
+        c.paragraphs[0].runs[0].bold = True
+        c.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+        set_cell_background(c, '1E3A8A')
+        set_cell_margins(c)
+
+    cons_data = [
+        ('1. Polling Lag', '10s fixed polling delayed status change visibility.', 'Upgraded client to adaptive fast polling (2.5–5s), added instant manual refresh button, and visual countdown pulse.'),
+        ('2. Single-Pair Hardcoding', 'Initial prototype only monitored vm-a -> vm-b.', 'Engineered multi-connection registry in Lambda and added GET /connections endpoint to scan and monitor multiple VM pairs.'),
+        ('3. Lack of Historical Trends', 'Only latest check was saved; latency spikes were lost.', 'Added dynamic 10-sample Latency Sparkline Bar Chart and real-time Uptime Reliability % counter on dashboard.'),
+        ('4. Network Jitter Flapping', 'Single dropped packet caused false red alert alarms.', 'Built Flap Damping Retry Engine (--consecutive-failures) and added intermediate Amber DEGRADED warning state.'),
+        ('5. Open Ingestion Route', 'POST /status accepted unauthenticated submissions.', 'Added optional API key / Bearer token validation (x-api-key) in Lambda and Monitor, returning HTTP 401 if invalid.'),
+        ('6. Unattended Monitoring', 'Instructors looking away missed visual alerts.', 'Integrated Web Audio API synthesizer in dashboard to play pleasant chime on UP and audible alert tone on DOWN.')
+    ]
+    for idx, (con, risk, sol) in enumerate(cons_data, start=1):
+        c1, c2, c3 = t_cons.rows[idx].cells
+        c1.paragraphs[0].text = con
+        c1.paragraphs[0].runs[0].bold = True
+        c2.paragraphs[0].text = risk
+        c3.paragraphs[0].text = sol
+        set_cell_margins(c1)
+        set_cell_margins(c2)
+        set_cell_margins(c3)
+        if idx % 2 == 1:
+            set_cell_background(c1, 'F8FAFC')
+            set_cell_background(c2, 'F8FAFC')
+            set_cell_background(c3, 'F8FAFC')
+
+    doc.add_heading('Key Deployment Challenges & Solutions', level=2)
+    doc.add_paragraph(
         '1. AWS Learner Lab IAM Limitations: Learner Lab prohibits creating custom IAM roles. We solved this by parameterizing '
         'the CloudFormation template to attach the default LabRole automatically.\n'
         '2. DynamoDB Decimal Serialization: DynamoDB rejects Python floats. We converted floats to Decimal for DynamoDB storage '

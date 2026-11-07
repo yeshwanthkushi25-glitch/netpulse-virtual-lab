@@ -36,6 +36,19 @@ class LambdaValidationTests(unittest.TestCase):
         self.assertTrue(item["checked_at"].endswith("Z"))
         self.assertTrue("received_at" in item)
 
+    def test_valid_payload_degraded(self):
+        payload = {
+            "source": "vm-a",
+            "target": "vm-b",
+            "status": "degraded",
+            "checked_at": "2026-11-07T10:00:00.000Z",
+            "latency_ms": 52.4,
+            "message": "Intermittent jitter spike",
+        }
+        item = app.validate_status_payload(payload)
+        self.assertEqual(item["status"], "degraded")
+        self.assertEqual(item["latency_ms"], 52.4)
+
     def test_valid_payload_down(self):
         payload = {
             "source": "vm-a",
@@ -96,7 +109,7 @@ class LambdaHandlerContractTests(unittest.TestCase):
 
     def setUp(self):
         self.mock_table = MagicMock()
-        # Patch the internal _TABLE in app module
+        self.mock_table.scan.return_value = {"Items": []}
         self.patcher = patch.object(app, "_TABLE", self.mock_table)
         self.patcher.start()
 
@@ -180,6 +193,30 @@ class LambdaHandlerContractTests(unittest.TestCase):
         body = json.loads(res["body"])
         self.assertFalse(body["ok"])
         self.assertEqual(body["status"], "unknown")
+
+    def test_get_all_connections(self):
+        self.mock_table.scan.return_value = {
+            "Items": [
+                {"connection_id": "vm-a#vm-b", "status": "up"},
+                {"connection_id": "vm-a#vm-c", "status": "down"}
+            ]
+        }
+        event = {"httpMethod": "GET", "path": "/connections"}
+        res = app.handler(event, None)
+        self.assertEqual(res["statusCode"], 200)
+        body = json.loads(res["body"])
+        self.assertEqual(len(body["connections"]), 2)
+
+    def test_api_key_auth_rejected_when_configured(self):
+        with patch.object(app, "API_KEY", "secret-token-123"):
+            event = {
+                "httpMethod": "POST",
+                "path": "/status",
+                "headers": {"x-api-key": "wrong-token"},
+                "body": json.dumps({"source": "vm-a", "target": "vm-b", "status": "up", "checked_at": "2026-11-07T12:00:00Z"}),
+            }
+            res = app.handler(event, None)
+            self.assertEqual(res["statusCode"], 401)
 
     def test_unsupported_path_returns_404(self):
         event = {"httpMethod": "GET", "path": "/invalid-route"}
