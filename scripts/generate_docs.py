@@ -276,6 +276,23 @@ def build_product_report():
             set_cell_background(c2, 'F8FAFC')
             set_cell_background(c3, 'F8FAFC')
 
+    doc.add_heading('Visual Test Results & Demonstration Screenshots', level=2)
+    screenshots = [
+        ("Figure 1: NetPulse Dashboard - Operational Link (Glowing Green State)", os.path.join(DOCS_DIR, "screenshots", "dashboard-operational-green.png")),
+        ("Figure 2: NetPulse Dashboard - Link Failure Detected (Pulsing Red Alert)", os.path.join(DOCS_DIR, "screenshots", "dashboard-failure-red.png")),
+        ("Figure 3: VirtualBox Monitor Telemetry & Test Suite Execution", os.path.join(DOCS_DIR, "screenshots", "terminal-monitor-demo.png")),
+        ("Figure 4: Cloud Computing End-to-End Architecture", os.path.join(DOCS_DIR, "screenshots", "architecture-diagram.png")),
+    ]
+    for caption, img_path in screenshots:
+        if os.path.exists(img_path):
+            p_cap = doc.add_paragraph()
+            r_cap = p_cap.add_run(caption)
+            r_cap.bold = True
+            r_cap.font.size = Pt(10)
+            r_cap.font.color.rgb = RGBColor(70, 90, 110)
+            doc.add_picture(img_path, width=Inches(5.8))
+            doc.add_paragraph()
+
     # Section 5
     doc.add_heading('5. Challenges and Conclusion', level=1)
     doc.add_paragraph(

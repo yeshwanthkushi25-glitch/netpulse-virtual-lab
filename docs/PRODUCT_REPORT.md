@@ -155,6 +155,20 @@ The project was evaluated through offline unit test suites, integration tests, a
 | **TC-04: API Input Validation & Defense** | Injected invalid payloads (e.g. invalid status string, negative latency, missing timezone, bad characters). | API Gateway Lambda returns `HTTP 400 Bad Request` with descriptive validation message; DynamoDB item unchanged. | **PASS** — Rejected all malformed requests cleanly. |
 | **TC-05: Local Demo & Offline Expo Mode** | Executed `npm run dev` (`python scripts/local_demo.py --demo`) without cloud credentials. | Local HTTP server spins up on port 8000; automated sequence cycles through Green -> Red -> Green. | **PASS** — 100% functional offline simulation for presentation expo. |
 
+### Visual Test Results & Screenshots
+
+#### Figure 1: NetPulse Dashboard - Link Operational (Glowing Green State)
+![NetPulse Dashboard Operational Green](screenshots/dashboard-operational-green.png)
+
+#### Figure 2: NetPulse Dashboard - Link Failure Detected (Pulsing Red Alert)
+![NetPulse Dashboard Failure Red](screenshots/dashboard-failure-red.png)
+
+#### Figure 3: Terminal Monitor Telemetry & Test Suite Execution
+![NetPulse Terminal Monitor & Test Suite](screenshots/terminal-monitor-demo.png)
+
+#### Figure 4: End-to-End Serverless Architecture Diagram
+![NetPulse Architecture Diagram](screenshots/architecture-diagram.png)
+
 ### Unit Test Verification
 An automated test suite (`tests/test_lambda.py`, `tests/test_monitor.py`, `tests/test_local_server.py`) with 29 test cases was executed:
 ```text

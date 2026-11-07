@@ -1,7 +1,37 @@
 # NetPulse — Virtual Lab Network Traffic Light
 ### Cloud Computing (25CAI102PC205) · SR University
 **Project No. 33 · Team NetPulse · Batch 59**  
-**Target Environment**: AWS Learner Lab (`us-east-1`) & VirtualBox Virtual Machines
+**Target Cloud Environment**: AWS Learner Lab (`us-east-1`) & VirtualBox Virtual Machines
+
+---
+
+## 📸 Visual Demos & Screenshots Showcase
+
+### 1. Operational State: Link Connected (Glowing Green Light)
+When both VirtualBox lab machines (VM A and VM B) are reachable, the Python monitor captures sub-millisecond round-trip time (RTT) and updates the AWS DynamoDB store. The dashboard displays a vibrant glowing green indicator with live latency metrics.
+
+![NetPulse Dashboard Operational Green](docs/screenshots/dashboard-operational-green.png)
+
+---
+
+### 2. Failure Detection State: Link Cut (Pulsing Red Light Alert)
+When the network link between VMs is severed (virtual cable unplugged or interface down), the monitor detects ICMP packet loss and dispatches `status: "down"`. The dashboard immediately transitions to a pulsing red emergency alert light with the diagnostic message `"Target unreachable"`.
+
+![NetPulse Dashboard Failure Red](docs/screenshots/dashboard-failure-red.png)
+
+---
+
+### 3. Reachability Monitor & Test Suite Terminal Execution
+The Python monitor runs with zero external dependencies (Python standard library only). The automated test suite validates all 29 schema contracts, DynamoDB serializations, and cross-platform ping behaviors.
+
+![NetPulse Terminal Monitor & Test Suite](docs/screenshots/terminal-monitor-demo.png)
+
+---
+
+### 4. End-to-End System Architecture
+A complete serverless pipeline spanning VirtualBox VM ICMP reachability, Amazon API Gateway HTTP ingestion, AWS Lambda validation, Amazon DynamoDB state storage, and Amazon S3 static hosting.
+
+![NetPulse System Architecture](docs/screenshots/architecture-diagram.png)
 
 ---
 
@@ -23,6 +53,40 @@ NetPulse solves this by transforming command-line ping results into a shared, re
 | :--- | :--- | :--- |
 | **M. Yeshwanth** | `2503A53005` | Configure the two virtual machines and Python reachability monitor; send test status to the API. |
 | **V. Laxmiprasad** | `2503A53006` | Build the AWS status storage and dashboard; test failure, recovery, and displayed status. |
+
+---
+
+## 🎬 Live Demonstration Scenarios
+
+### Demo Scenario A: One-Command Automated Expo Runner
+Run our automated demo without needing cloud credentials or virtual machines:
+```bash
+npm run dev
+# Or: python scripts/local_demo.py --demo
+```
+**What happens in this demo:**
+1. **[0s] Normal Connectivity**: The server stores an active `up` state (latency ~1.34 ms). The browser lights up with the glowing green traffic light.
+2. **[7s] Link Severance Simulation**: The server simulates an unexpected network failure (`status: down`). The browser immediately flashes the red alert light.
+3. **[15s] Link Recovery**: The link is restored (`status: up`, latency ~1.82 ms). The dashboard smoothly recovers back to green.
+
+---
+
+### Demo Scenario B: Interactive Web Dashboard Controls
+Open `http://localhost:8000` (or your S3 website URL). Use the built-in demo buttons:
+- Click **"Simulate Link Cut (Red)"**: Sends a failure payload to the API; the indicator immediately switches to red.
+- Click **"Link Operational (Green)"**: Reconnects the virtual link; the indicator transitions back to operational green.
+*(Directly implements the instructor guideline: "No ESP32? Use a button on your web page instead of a real button".)*
+
+---
+
+### Demo Scenario C: Physical / VirtualBox Failure & Recovery
+With the monitor running on VM A:
+```bash
+python3 monitor/netpulse_monitor.py --source vm-a --target 192.168.56.102 --interval 5
+```
+1. In VirtualBox for VM B: Navigate to **Devices** ➔ **Network** ➔ **Network Settings** ➔ Uncheck **Cable Connected**.
+2. Within 5 seconds, the dashboard changes from **Green** to **Red**.
+3. Re-check **Cable Connected**; the dashboard detects recovery and turns **Green** again.
 
 ---
 
@@ -76,16 +140,6 @@ NetPulse solves this by transforming command-line ping results into a shared, re
 +-----------------------------------------------------------------------------------+
 ```
 
-### AWS Cloud Services & Roles
-
-| Service | NetPulse Role | Justification |
-| :--- | :--- | :--- |
-| **Amazon S3** | Static Website Hosting | Serves dashboard frontend (`index.html`, `styles.css`, `app.js`) at minimal cost without provisioning EC2 instances. |
-| **Amazon API Gateway** | HTTP API Ingestion | Ingests connectivity reports from VM A and serves status queries to the dashboard with low latency and native CORS. |
-| **AWS Lambda** | Validation & Routing | Serverless Python 3.12 function validating input schema (identifiers, status enums, timestamps, latency bounds). |
-| **Amazon DynamoDB** | Persistent State Store | Single source of truth. Partition key `connection_id` allows $O(1)$ fast lookups with strong read consistency. |
-| **Amazon CloudWatch** | Observability & Logging | Collects execution traces, latency metrics, and error diagnostics during testing and grading. |
-
 ---
 
 ## ⚡ Quick Start: Local Offline Demo
@@ -104,10 +158,6 @@ Open your browser at `http://localhost:8000`. You will see the NetPulse traffic 
 npm run dev
 # Or directly: python scripts/local_demo.py --demo
 ```
-This automatically initiates the demonstration sequence:
-1. **Initial Healthy State**: Green traffic light (`Link Operational`, latency ~1.3 ms).
-2. **Simulated Link Failure**: Red traffic light (`Connection Lost`, host unreachable).
-3. **Automatic Recovery**: Reverts back to green operational state.
 
 ### 3. Run Automated Tests
 ```bash
@@ -162,7 +212,7 @@ NetPulse provides two deployment options:
    ```bash
    aws s3 sync dashboard/ s3://YOUR_DASHBOARD_BUCKET_NAME --delete
    ```
-   *(Or simply upload `index.html`, `styles.css`, `app.js`, `config.js` via the AWS S3 Console UI!)*
+   *(Or upload `index.html`, `styles.css`, `app.js`, `config.js` via the AWS S3 Console UI!)*
 8. Open your `DashboardWebsiteUrl` in your browser. Paste `StatusApiUrl` into `dashboard/config.js` or configure it via the dashboard.
 
 ### Option B: AWS SAM CLI
@@ -188,12 +238,18 @@ netpulse/
 │   └── netpulse_monitor.py     # Cross-platform ping monitor (standard library only)
 ├── scripts/                    # Development & Expo Tooling
 │   ├── local_demo.py           # Offline mock server & automated expo runner
+│   ├── capture_screenshots.py  # Automated Chrome screenshot generator
 │   └── generate_docs.py        # Generates academic submission .docx files
 ├── tests/                      # Automated Test Suite (29 tests)
 │   ├── test_lambda.py          # Lambda schema validation & contract tests
 │   ├── test_monitor.py         # Ping command & regex latency tests
 │   └── test_local_server.py    # Local demo mock server tests
 ├── docs/                       # Academic Submission Deliverables
+│   ├── screenshots/            # Real captured demo and architecture images
+│   │   ├── dashboard-operational-green.png
+│   │   ├── dashboard-failure-red.png
+│   │   ├── terminal-monitor-demo.png
+│   │   └── architecture-diagram.png
 │   ├── PRODUCT_START_SHEET.md  # Official course product start sheet
 │   ├── PRODUCT_START_SHEET.docx# Formatted Word submission document
 │   ├── PRODUCT_REPORT.md       # Full academic project report (Sections 1–6)
@@ -221,6 +277,7 @@ netpulse/
 
 ## 📜 Submission Checklist Verification
 
+- [x] **Screenshots & Demos**: Real live Chrome captures and terminal logs embedded in README and reports.
 - [x] **PDF & Word Reports**: `docs/PRODUCT_START_SHEET.docx` and `docs/PRODUCT_REPORT.docx` generated and verified.
 - [x] **Architecture Diagram**: Visual ASCII & Mermaid flow diagrams included in all reports.
 - [x] **Working Demonstration**: Tested with `npm run dev` and `npm run serve`.
