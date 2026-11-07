@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: NetPulse Virtual Lab Network Traffic Light (AWS Serverless Architecture)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 128
+    Timeout: 10
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    Description: Environment stage name
+
+Resources:
+  # 1. DynamoDB Table for Latest Status Storage
+  StatusTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-status'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connection_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connection_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: false
+
+  # 2. HTTP API Gateway (v2)
+  StatusApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        MaxAge: 300
+
+  # 3. AWS Lambda Function for Validation and Persistence
+  StatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref StatusTable
+          ALLOWED_ORIGIN: '*'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StatusTable
+      Events:
+        PostStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StatusApi
+            Path: /status
+            Method: POST
+        GetStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StatusApi
+            Path: /status
+            Method: GET
+
+  # 4. Amazon S3 Bucket for Static Website Dashboard
+  DashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  DashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DashboardBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForDashboardWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${DashboardBucket.Arn}/*'
+
+Outputs:
+  StatusApiUrl:
+    Description: Public HTTP API Gateway base URL (set this in dashboard/config.js or via UI)
+    Value: !Sub 'https://${StatusApi}.execute-api.${AWS::Region}.amazonaws.com'
+  DashboardWebsiteUrl:
+    Description: S3 Static Website Hosting URL for the NetPulse Dashboard
+    Value: !GetAtt DashboardBucket.WebsiteURL
+  DashboardBucketName:
+    Description: Target S3 Bucket name for uploading dashboard assets (index.html, styles.css, app.js)
+    Value: !Ref DashboardBucket
+  StatusTableName:
+    Description: Amazon DynamoDB Table name storing reachability states
+    Value: !Ref StatusTable

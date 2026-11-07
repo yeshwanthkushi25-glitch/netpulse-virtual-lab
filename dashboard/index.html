@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="NetPulse virtual lab network reachability dashboard">
+  <title>NetPulse · Virtual Lab Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NetPulse home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>NetPulse</span>
+      </a>
+      <div class="lab-badge"><span></span> VIRTUAL LAB · LIVE</div>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">NETWORK TRAFFIC LIGHT</p>
+      <h1 id="page-title">Connection status,<br><span>at a glance.</span></h1>
+      <p class="intro">A shared view of reachability between your lab machines. Green means connected. Red means the link needs attention.</p>
+    </section>
+
+    <section class="monitor-card" aria-label="Virtual machine connection monitor">
+      <div class="route-row">
+        <div class="machine">
+          <span class="machine-label">SOURCE</span>
+          <strong id="source">vm-a</strong>
+          <span class="machine-subtitle">Monitor VM</span>
+        </div>
+        <div class="route" aria-hidden="true">
+          <span class="route-node"></span><span class="route-line"></span>
+          <span class="route-packet"></span>
+          <span class="route-line"></span><span class="route-node"></span>
+        </div>
+        <div class="machine machine-right">
+          <span class="machine-label">TARGET</span>
+          <strong id="target">vm-b</strong>
+          <span class="machine-subtitle">Destination VM</span>
+        </div>
+      </div>
+
+      <div id="status-panel" class="status-panel unknown" role="status" aria-live="polite">
+        <div class="light-wrap" aria-hidden="true">
+          <div class="light-aura"></div>
+          <div class="light"></div>
+        </div>
+        <p id="status-kicker" class="status-kicker">WAITING FOR DATA</p>
+        <h2 id="status-title">No status yet</h2>
+        <p id="status-message">The first connectivity check will appear here.</p>
+      </div>
+
+      <dl class="metrics">
+        <div><dt>Last checked</dt><dd id="checked-at">—</dd></div>
+        <div><dt>Round-trip time</dt><dd id="latency">—</dd></div>
+        <div><dt>Connection</dt><dd id="connection-id">vm-a → vm-b</dd></div>
+      </dl>
+
+      <div class="sim-panel" aria-label="Demo simulation controls">
+        <div class="sim-header">
+          <span class="sim-tag">INTERACTIVE EXPO & DEMO CONTROLS</span>
+          <span class="sim-note">Trigger real-time state transition on AWS/Local</span>
+        </div>
+        <div class="sim-buttons">
+          <button id="btn-simulate-up" type="button" class="sim-btn sim-up" title="Simulate link restored">
+            <span class="sim-icon">●</span> Link Operational (Green)
+          </button>
+          <button id="btn-simulate-down" type="button" class="sim-btn sim-down" title="Simulate link severed">
+            <span class="sim-icon">●</span> Simulate Link Cut (Red)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p><span id="refresh-dot" class="refresh-dot"></span><span id="refresh-label">Checking for updates…</span></p>
+      <button id="refresh-button" type="button">Refresh now <span aria-hidden="true">↻</span></button>
+    </footer>
+
+    <p class="course">SR UNIVERSITY · CLOUD COMPUTING · TEAM NETPULSE</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.local/
+infrastructure/packaged.yaml
+.DS_Store
+node_modules/

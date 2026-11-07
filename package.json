@@ -1,0 +1,11 @@
+{
+  "name": "netpulse-virtual-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Software-only virtual lab network traffic light",
+  "scripts": {
+    "dev": "python scripts/local_demo.py --demo",
+    "serve": "python scripts/local_demo.py",
+    "test": "python -m unittest discover -s tests -v"
+  }
+}

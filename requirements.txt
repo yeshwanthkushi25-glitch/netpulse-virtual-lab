@@ -1,0 +1,2 @@
+# The monitor, local demo, and tests use only the Python standard library.
+# boto3 is supplied automatically by the AWS Lambda Python runtime.

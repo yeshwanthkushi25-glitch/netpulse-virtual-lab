@@ -1,0 +1,264 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: NetPulse Virtual Lab Network Traffic Light - Pure CloudFormation Stack for AWS Learner Lab
+
+Parameters:
+  UseLabRole:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Set to 'true' if deploying inside AWS Learner Lab (uses existing LabRole).
+
+  LabRoleArn:
+    Type: String
+    Default: 'arn:aws:iam::us-east-1:*:role/LabRole'
+    Description: ARN pattern for the pre-existing Learner Lab IAM Role.
+
+Conditions:
+  IsInLearnerLab: !Equals [!Ref UseLabRole, 'true']
+
+Resources:
+  # 1. DynamoDB Table
+  StatusTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-status'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connection_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connection_id
+          KeyType: HASH
+
+  # 2. IAM Role for Lambda (Created only if NOT in Learner Lab)
+  CustomLambdaRole:
+    Type: AWS::IAM::Role
+    Condition: !Equals [!Ref UseLabRole, 'false']
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: NetPulseDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt StatusTable.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 'arn:aws:logs:*:*:*'
+
+  # 3. AWS Lambda Function
+  StatusFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-status-handler'
+      Runtime: python3.12
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 10
+      Role: !If
+        - IsInLearnerLab
+        - !Sub 'arn:aws:iam::${AWS::AccountId}:role/LabRole'
+        - !GetAtt CustomLambdaRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref StatusTable
+          ALLOWED_ORIGIN: '*'
+      Code:
+        ZipFile: |
+          import json, os, re, math
+          from datetime import datetime, timezone
+          from decimal import Decimal
+          import boto3
+
+          TABLE_NAME = os.environ.get("TABLE_NAME", "netpulse-status")
+          IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+          _TABLE = None
+
+          def _table():
+              global _TABLE
+              if _TABLE is None:
+                  _TABLE = boto3.resource("dynamodb").Table(TABLE_NAME)
+              return _TABLE
+
+          def _json_default(value):
+              if isinstance(value, Decimal):
+                  return int(value) if value == value.to_integral_value() else float(value)
+              raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+          def _response(status_code, payload):
+              return {
+                  "statusCode": status_code,
+                  "headers": {
+                      "Content-Type": "application/json",
+                      "Access-Control-Allow-Origin": "*",
+                      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                      "Access-Control-Allow-Headers": "Content-Type",
+                      "Cache-Control": "no-store",
+                  },
+                  "body": json.dumps(payload, default=_json_default),
+              }
+
+          def _identifier(val, name):
+              if not isinstance(val, str) or not IDENTIFIER.fullmatch(val):
+                  raise ValueError(f"{name} invalid identifier")
+              return val
+
+          def handler(event, context):
+              req_ctx = event.get("requestContext", {})
+              method = (req_ctx.get("http", {}).get("method") or event.get("httpMethod") or "").upper()
+              path = req_ctx.get("http", {}).get("path") or event.get("rawPath") or event.get("path") or ""
+
+              if method == "OPTIONS":
+                  return _response(204, {})
+              if not path.endswith("/status"):
+                  return _response(404, {"ok": False, "error": "Route not found"})
+
+              try:
+                  if method == "POST":
+                      body = event.get("body") or "{}"
+                      data = json.loads(body) if isinstance(body, str) else body
+                      src = _identifier(data.get("source"), "source")
+                      tgt = _identifier(data.get("target"), "target")
+                      status = data.get("status")
+                      if status not in ("up", "down"):
+                          raise ValueError("status must be up or down")
+                      latency = data.get("latency_ms")
+                      if latency is not None:
+                          latency = Decimal(str(round(float(latency), 3)))
+                      item = {
+                          "connection_id": f"{src}#{tgt}",
+                          "source": src,
+                          "target": tgt,
+                          "status": status,
+                          "checked_at": data.get("checked_at") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                          "latency_ms": latency,
+                          "message": str(data.get("message", "Operational" if status == "up" else "Down"))[:300],
+                          "received_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                      }
+                      _table().put_item(Item=item)
+                      return _response(200, {"ok": True, "item": item})
+
+                  if method == "GET":
+                      params = event.get("queryStringParameters") or {}
+                      src = _identifier(params.get("source", "vm-a"), "source")
+                      tgt = _identifier(params.get("target", "vm-b"), "target")
+                      res = _table().get_item(Key={"connection_id": f"{src}#{tgt}"}, ConsistentRead=True)
+                      item = res.get("Item")
+                      if not item:
+                          return _response(404, {"ok": False, "status": "unknown", "error": "No checks recorded yet"})
+                      return _response(200, {"ok": True, "item": item})
+
+                  return _response(405, {"ok": False, "error": "Method not allowed"})
+              except ValueError as e:
+                  return _response(400, {"ok": False, "error": str(e)})
+              except Exception as e:
+                  return _response(500, {"ok": False, "error": f"Server error: {e}"})
+
+  # 4. HTTP API Gateway v2
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        MaxAge: 300
+
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt StatusFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  PostStatusRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /status'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  GetStatusRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /status'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  LambdaPermissionHttpApi:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt StatusFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/*'
+
+  # 5. S3 Bucket for Static Website
+  DashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  DashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DashboardBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForDashboard
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${DashboardBucket.Arn}/*'
+
+Outputs:
+  StatusApiUrl:
+    Description: HTTP API Gateway base URL
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  DashboardWebsiteUrl:
+    Description: S3 Static Website URL
+    Value: !GetAtt DashboardBucket.WebsiteURL
+  DashboardBucketName:
+    Description: Name of S3 Bucket for Dashboard
+    Value: !Ref DashboardBucket
+  StatusTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref StatusTable
