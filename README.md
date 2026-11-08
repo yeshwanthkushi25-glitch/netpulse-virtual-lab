@@ -8,30 +8,37 @@
 ## 📸 Visual Demos & Screenshots Showcase
 
 ### 1. Operational State: Link Connected (Glowing Green Light)
-When both VirtualBox lab machines (VM A and VM B) are reachable, the Python monitor captures sub-millisecond round-trip time (RTT) and updates the AWS DynamoDB store. The dashboard displays a vibrant glowing green indicator with live latency metrics.
+When both VirtualBox lab machines (VM A and VM B) are reachable, the Python monitor captures sub-millisecond round-trip time (RTT) and updates the AWS DynamoDB store. The dashboard displays a vibrant glowing green indicator with live latency metrics and the interactive Teacher Demo Controller.
 
-![NetPulse Dashboard Operational Green](docs/screenshots/dashboard-operational-green.png)
-
----
-
-### 2. Failure Detection State: Link Cut (Pulsing Red Light Alert)
-When the network link between VMs is severed (virtual cable unplugged or interface down), the monitor detects ICMP packet loss and dispatches `status: "down"`. The dashboard immediately transitions to a pulsing red emergency alert light with the diagnostic message `"Target unreachable"`.
-
-![NetPulse Dashboard Failure Red](docs/screenshots/dashboard-failure-red.png)
+![NetPulse Dashboard Operational Green](screenshots/dashboard-operational-green.png)
 
 ---
 
-### 3. Reachability Monitor & Test Suite Terminal Execution
-The Python monitor runs with zero external dependencies (Python standard library only). The automated test suite validates all 29 schema contracts, DynamoDB serializations, and cross-platform ping behaviors.
+### 2. Degraded State: Jitter / High Latency Warning (Pulsing Amber Light)
+When network congestion, CPU throttling, or packet jitter occurs, the monitor's flap damping engine detects the anomaly and flags the link as `degraded`. The dashboard pulses with an amber warning light, displaying the latency spike (e.g., ~52 ms) and warning the team before a total outage occurs.
 
-![NetPulse Terminal Monitor & Test Suite](docs/screenshots/terminal-monitor-demo.png)
+![NetPulse Dashboard Degraded Amber](screenshots/dashboard-degraded-amber.png)
 
 ---
 
-### 4. End-to-End System Architecture
-A complete serverless pipeline spanning VirtualBox VM ICMP reachability, Amazon API Gateway HTTP ingestion, AWS Lambda validation, Amazon DynamoDB state storage, and Amazon S3 static hosting.
+### 3. Failure Detection State: Link Severed (Pulsing Red Light Alert)
+When the network link between VMs is severed (virtual cable unplugged in VirtualBox or interface down), the monitor detects ICMP packet loss and dispatches `status: "down"`. The dashboard immediately transitions to a pulsing red emergency alert light with the diagnostic message `"Target unreachable"` and an audible warning tone.
 
-![NetPulse System Architecture](docs/screenshots/architecture-diagram.png)
+![NetPulse Dashboard Failure Red](screenshots/dashboard-failure-red.png)
+
+---
+
+### 4. Reachability Monitor & 34-Test Suite Terminal Execution
+The Python monitor runs with zero external dependencies (Python standard library only). The automated test suite validates all 34 schema contracts, DynamoDB serializations, flap damping, and cross-platform ping behaviors with 100% pass rate in 0.007s.
+
+![NetPulse Terminal Monitor & Test Suite](screenshots/terminal-monitor-demo.png)
+
+---
+
+### 5. End-to-End System Architecture
+A complete 4-tier serverless pipeline spanning VirtualBox VM ICMP reachability, Amazon API Gateway HTTP ingestion, AWS Lambda validation, Amazon DynamoDB state storage, and Amazon S3 static hosting.
+
+![NetPulse System Architecture](screenshots/architecture-diagram.png)
 
 ---
 
