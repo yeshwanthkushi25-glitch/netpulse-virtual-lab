@@ -5,11 +5,18 @@
   const elements = {
     panel: $("status-panel"), kicker: $("status-kicker"), title: $("status-title"),
     message: $("status-message"), checked: $("checked-at"), latency: $("latency"),
-    button: $("refresh-button"), refreshLabel: $("refresh-label"), refreshDot: $("refresh-dot")
+    button: $("refresh-button"), refreshLabel: $("refresh-label"), refreshDot: $("refresh-dot"),
+    ctrlStatus: $("controller-status"),
+    slider: $("latency-slider"), numInput: $("latency-num-input"), msgInput: $("demo-msg-input"),
+    btnConnect: $("btn-demo-connect"), btnDegrade: $("btn-demo-degrade"), btnDisconnect: $("btn-demo-disconnect"),
+    btnApply: $("btn-apply-demo"),
+    btnAudio: $("btn-audio"), audioState: $("audio-state"), audioIcon: $("audio-icon"),
+    sparkline: $("latency-sparkline"), uptime: $("uptime-val")
   };
 
   let timer;
   let previousStatus = null;
+  let currentSimStatus = "up";
   let checkHistory = [];
   let audioEnabled = localStorage.getItem("netpulse_audio") !== "false";
 
@@ -17,7 +24,7 @@
   $("target").textContent = config.target;
   $("connection-id").textContent = `${config.source} → ${config.target}`;
 
-  // Synthesized Web Audio API Chime (Zero external audio files required)
+  // Web Audio API Synthesizer (Zero external audio files needed)
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const audioCtx = AudioContextClass ? new AudioContextClass() : null;
 
@@ -57,17 +64,14 @@
     } catch (_) {}
   }
 
-  const btnAudio = $("btn-audio");
-  const audioState = $("audio-state");
-  const audioIcon = $("audio-icon");
   function syncAudioUI() {
-    if (audioState) audioState.textContent = audioEnabled ? "ON" : "OFF";
-    if (audioIcon) audioIcon.textContent = audioEnabled ? "🔔" : "🔕";
-    if (btnAudio) btnAudio.style.opacity = audioEnabled ? "1" : "0.6";
+    if (elements.audioState) elements.audioState.textContent = audioEnabled ? "ON" : "OFF";
+    if (elements.audioIcon) elements.audioIcon.textContent = audioEnabled ? "🔔" : "🔕";
+    if (elements.btnAudio) elements.btnAudio.style.opacity = audioEnabled ? "1" : "0.6";
   }
-  if (btnAudio) {
+  if (elements.btnAudio) {
     syncAudioUI();
-    btnAudio.addEventListener("click", () => {
+    elements.btnAudio.addEventListener("click", () => {
       audioEnabled = !audioEnabled;
       localStorage.setItem("netpulse_audio", audioEnabled ? "true" : "false");
       syncAudioUI();
@@ -96,21 +100,19 @@
 
     const upCount = checkHistory.filter(c => c.status === "up" || c.status === "degraded").length;
     const uptimePct = Math.round((upCount / checkHistory.length) * 100);
-    const uptimeEl = $("uptime-val");
-    if (uptimeEl) {
-      uptimeEl.textContent = `${uptimePct}%`;
-      uptimeEl.style.color = uptimePct >= 90 ? "var(--green)" : (uptimePct >= 50 ? "var(--amber)" : "var(--red)");
+    if (elements.uptime) {
+      elements.uptime.textContent = `${uptimePct}%`;
+      elements.uptime.style.color = uptimePct >= 90 ? "var(--green)" : (uptimePct >= 50 ? "var(--amber)" : "var(--red)");
     }
 
-    const sparkEl = $("latency-sparkline");
-    if (sparkEl) {
-      sparkEl.innerHTML = "";
+    if (elements.sparkline) {
+      elements.sparkline.innerHTML = "";
       checkHistory.forEach(h => {
         const bar = document.createElement("div");
         bar.className = `spark-bar ${h.status}`;
         let heightPct = 50;
         if (h.status === "up" && h.latency != null) {
-          heightPct = Math.min(100, Math.max(18, Math.round(h.latency * 28)));
+          heightPct = Math.min(100, Math.max(16, Math.round(h.latency * 26)));
         } else if (h.status === "degraded") {
           heightPct = 85;
         } else {
@@ -118,7 +120,7 @@
         }
         bar.style.height = `${heightPct}%`;
         bar.title = `${h.status.toUpperCase()} · ${h.latency != null ? h.latency + ' ms' : 'Packet Drop'}`;
-        sparkEl.appendChild(bar);
+        elements.sparkline.appendChild(bar);
       });
     }
   }
@@ -130,16 +132,50 @@
     }
 
     if (item.status === "up") {
-      setState("up", "LINK OPERATIONAL", "VMs are connected", item.message || "The target VM is responding to ICMP reachability checks.");
+      setState("up", "LINK OPERATIONAL", "VMs are connected", item.message || "Target VM is responding normally to ICMP reachability checks.");
+      currentSimStatus = "up";
     } else if (item.status === "degraded") {
-      setState("degraded", "LINK DEGRADED · JITTER", "High latency / packet loss", item.message || "Intermittent network response detected between lab machines.");
+      setState("degraded", "LINK DEGRADED · JITTER", "High latency / packet jitter", item.message || "Intermittent network response detected between lab machines.");
+      currentSimStatus = "degraded";
     } else {
-      setState("down", "CONNECTION LOST", "Target unreachable", item.message || "The latest check could not reach the target VM.");
+      setState("down", "CONNECTION LOST", "Target unreachable", item.message || "The latest reachability check could not reach the target VM.");
+      currentSimStatus = "down";
     }
 
     elements.checked.textContent = formatChecked(item.checked_at);
     elements.latency.textContent = item.latency_ms == null ? "No response" : `${Number(item.latency_ms).toFixed(item.latency_ms < 10 ? 2 : 1)} ms`;
     updateTelemetry(item);
+  }
+
+  async function postTelemetry(status, latency, message) {
+    const base = (config.apiUrl || "").replace(/\/$/, "");
+    const payload = {
+      source: config.source,
+      target: config.target,
+      status: status,
+      checked_at: new Date().toISOString(),
+      latency_ms: latency,
+      message: message
+    };
+
+    if (elements.ctrlStatus) elements.ctrlStatus.textContent = "UPDATING...";
+    try {
+      const response = await fetch(`${base}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (elements.ctrlStatus) elements.ctrlStatus.textContent = "APPLIED ⚡";
+      await refresh();
+    } catch (err) {
+      console.warn("Direct API call unavailable; rendering locally", err);
+      if (elements.ctrlStatus) elements.ctrlStatus.textContent = "LOCAL STATE";
+      render(payload);
+    }
+    setTimeout(() => {
+      if (elements.ctrlStatus) elements.ctrlStatus.textContent = "READY";
+    }, 2000);
   }
 
   async function refresh() {
@@ -173,47 +209,73 @@
     }
   }
 
-  elements.button.addEventListener("click", refresh);
-
-  async function simulateStatus(status) {
-    const isUp = status === "up";
-    const isDegraded = status === "degraded";
-    const base = (config.apiUrl || "").replace(/\/$/, "");
-    let lat = isUp ? Number((Math.random() * 1.5 + 0.9).toFixed(2)) : (isDegraded ? Number((Math.random() * 40 + 35).toFixed(1)) : null);
-    let msg = isUp ? "VMs connected · Link verified via interactive simulation" : (isDegraded ? "Intermittent jitter spike detected" : "Target unreachable · Link severed via interactive simulation");
-
-    const payload = {
-      source: config.source,
-      target: config.target,
-      status: status,
-      checked_at: new Date().toISOString(),
-      latency_ms: lat,
-      message: msg
-    };
-    try {
-      elements.refreshLabel.textContent = `Posting simulated ${status.toUpperCase()} state…`;
-      const response = await fetch(`${base}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        throw new Error(`Simulation failed: HTTP ${response.status}`);
-      }
-      await refresh();
-    } catch (err) {
-      console.warn("Direct API call unavailable; rendering local simulation state", err);
-      render(payload);
-    }
+  // Two-way synchronization between Latency Slider & Number Input
+  if (elements.slider && elements.numInput) {
+    elements.slider.addEventListener("input", (e) => {
+      elements.numInput.value = e.target.value;
+    });
+    elements.numInput.addEventListener("input", (e) => {
+      elements.slider.value = e.target.value;
+    });
   }
 
-  const btnUp = $("btn-simulate-up");
-  const btnDegraded = $("btn-simulate-degraded");
-  const btnDown = $("btn-simulate-down");
-  if (btnUp) btnUp.addEventListener("click", () => simulateStatus("up"));
-  if (btnDegraded) btnDegraded.addEventListener("click", () => simulateStatus("degraded"));
-  if (btnDown) btnDown.addEventListener("click", () => simulateStatus("down"));
+  // Teacher Demo Action Buttons
+  if (elements.btnConnect) {
+    elements.btnConnect.addEventListener("click", () => {
+      currentSimStatus = "up";
+      const lat = parseFloat(elements.numInput.value) || 1.25;
+      const msg = elements.msgInput.value || "VMs connected via VirtualBox host-only adapter";
+      postTelemetry("up", lat, msg);
+    });
+  }
 
+  if (elements.btnDegrade) {
+    elements.btnDegrade.addEventListener("click", () => {
+      currentSimStatus = "degraded";
+      let lat = parseFloat(elements.numInput.value) || 52.0;
+      if (lat < 20) {
+        lat = 52.0;
+        elements.numInput.value = lat;
+        elements.slider.value = lat;
+      }
+      const msg = "High network latency / packet jitter detected between lab VMs";
+      elements.msgInput.value = msg;
+      postTelemetry("degraded", lat, msg);
+    });
+  }
+
+  if (elements.btnDisconnect) {
+    elements.btnDisconnect.addEventListener("click", () => {
+      currentSimStatus = "down";
+      const msg = "Destination Host Unreachable · Virtual cable disconnected";
+      elements.msgInput.value = msg;
+      postTelemetry("down", null, msg);
+    });
+  }
+
+  if (elements.btnApply) {
+    elements.btnApply.addEventListener("click", () => {
+      const lat = currentSimStatus === "down" ? null : (parseFloat(elements.numInput.value) || 1.25);
+      const msg = elements.msgInput.value || (currentSimStatus === "up" ? "Target reachable" : "Target unreachable");
+      postTelemetry(currentSimStatus, lat, msg);
+    });
+  }
+
+  // Quick Preset Buttons
+  document.querySelectorAll(".btn-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const lat = parseFloat(btn.dataset.latency);
+      const status = btn.dataset.status;
+      currentSimStatus = status;
+      elements.numInput.value = lat;
+      elements.slider.value = lat;
+      let msg = status === "up" ? `Verified connectivity with ${lat} ms RTT` : `High latency spike: ${lat} ms`;
+      elements.msgInput.value = msg;
+      postTelemetry(status, lat, msg);
+    });
+  });
+
+  elements.button.addEventListener("click", refresh);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
   refresh();
   timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(2500, config.refreshIntervalMs));

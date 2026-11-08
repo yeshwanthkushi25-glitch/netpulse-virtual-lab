@@ -25,9 +25,9 @@
     </header>
 
     <section class="hero" aria-labelledby="page-title">
-      <p class="eyebrow">SR UNIVERSITY · CLOUD COMPUTING (25CAI102PC205)</p>
+      <p class="eyebrow">SR UNIVERSITY · CLOUD COMPUTING (25CAI102PC205) · PROJECT NO. 33</p>
       <h1 id="page-title">Network Traffic Light,<br><span>at cloud scale.</span></h1>
-      <p class="intro">A shared, real-time telemetry dashboard for VirtualBox lab machines. Transforms command-line ICMP ping output into an instantaneous visual traffic light.</p>
+      <p class="intro">A shared real-time telemetry dashboard for VirtualBox lab machines. Transforms invisible command-line ICMP ping output into an instantaneous cloud-hosted traffic light.</p>
     </section>
 
     <section class="monitor-card" aria-label="Virtual machine connection monitor">
@@ -63,7 +63,6 @@
         <div class="trend-section">
           <span class="trend-label">RECENT LATENCY TELEMETRY (LAST 10 CHECKS):</span>
           <div id="latency-sparkline" class="sparkline-wrap">
-            <!-- Dynamic latency history bars populated by app.js -->
             <div class="spark-bar up" style="height: 40%"></div>
             <div class="spark-bar up" style="height: 45%"></div>
             <div class="spark-bar up" style="height: 38%"></div>
@@ -79,25 +78,63 @@
 
       <dl class="metrics">
         <div><dt>Last checked</dt><dd id="checked-at">—</dd></div>
-        <div><dt>Round-trip time</dt><dd id="latency">—</dd></div>
-        <div><dt>Connection</dt><dd id="connection-id">vm-a → vm-b</dd></div>
+        <div><dt>Round-trip time (RTT)</dt><dd id="latency">—</dd></div>
+        <div><dt>Connection ID</dt><dd id="connection-id">vm-a → vm-b</dd></div>
       </dl>
 
-      <div class="sim-panel" aria-label="Demo simulation controls">
-        <div class="sim-header">
-          <span class="sim-tag">INTERACTIVE EXPO & DEMO CONTROLS</span>
-          <span class="sim-note">Click buttons to trigger real-time state changes on AWS / Local</span>
+      <!-- TEACHER DEMO SETUP & INTERACTIVE NETWORK CONTROLLER -->
+      <div class="demo-controller" aria-label="Teacher Demonstration Setup">
+        <div class="controller-header">
+          <div class="ctrl-titles">
+            <span class="ctrl-tag">🎓 TEACHER DEMO CONTROLLER & LAB SIMULATOR</span>
+            <span class="ctrl-desc">Demonstrate live connection, disconnection, and custom latency in real time</span>
+          </div>
+          <span id="controller-status" class="ctrl-status-pill">READY</span>
         </div>
-        <div class="sim-buttons">
-          <button id="btn-simulate-up" type="button" class="sim-btn sim-up" title="Simulate link restored (Green)">
-            <span class="sim-icon">●</span> Link Operational (Green)
+
+        <!-- Connection state buttons -->
+        <div class="ctrl-buttons-row">
+          <button id="btn-demo-connect" type="button" class="btn-ctrl btn-connect">
+            <span class="btn-dot dot-green"></span> Connect Link (Green)
           </button>
-          <button id="btn-simulate-degraded" type="button" class="sim-btn sim-degraded" title="Simulate packet latency spike / jitter (Amber)">
-            <span class="sim-icon">●</span> Simulate Degraded (Amber)
+          <button id="btn-demo-degrade" type="button" class="btn-ctrl btn-degrade">
+            <span class="btn-dot dot-amber"></span> Degrade / Jitter (Amber)
           </button>
-          <button id="btn-simulate-down" type="button" class="sim-btn sim-down" title="Simulate link severed (Red)">
-            <span class="sim-icon">●</span> Simulate Link Cut (Red)
+          <button id="btn-demo-disconnect" type="button" class="btn-ctrl btn-disconnect">
+            <span class="btn-dot dot-red"></span> Disconnect Link (Red)
           </button>
+        </div>
+
+        <!-- Custom Latency input & Slider -->
+        <div class="latency-ctrl-box">
+          <div class="latency-header-row">
+            <label for="latency-slider" class="latency-label">CONFIGURED ROUND-TRIP LATENCY:</label>
+            <div class="latency-val-display">
+              <input type="number" id="latency-num-input" min="0.1" max="1000" step="0.1" value="1.25">
+              <span>ms</span>
+            </div>
+          </div>
+
+          <div class="slider-row">
+            <span class="slider-bound">0.5 ms</span>
+            <input type="range" id="latency-slider" min="0.5" max="300" step="0.5" value="1.25">
+            <span class="slider-bound">300 ms</span>
+          </div>
+
+          <!-- Quick latency presets -->
+          <div class="presets-row">
+            <span class="preset-label">PRESETS:</span>
+            <button type="button" class="btn-preset" data-latency="0.85" data-status="up">Fast LAN (0.8 ms)</button>
+            <button type="button" class="btn-preset" data-latency="2.40" data-status="up">Standard Lab (2.4 ms)</button>
+            <button type="button" class="btn-preset" data-latency="52.0" data-status="degraded">Cloud WAN (52 ms)</button>
+            <button type="button" class="btn-preset" data-latency="185.0" data-status="degraded">High Jitter (185 ms)</button>
+          </div>
+        </div>
+
+        <!-- Custom Diagnostic Message & Apply Button -->
+        <div class="msg-ctrl-row">
+          <input type="text" id="demo-msg-input" placeholder="Custom diagnostic message (e.g. Virtual cable unplugged in VirtualBox)" value="VMs connected via VirtualBox host-only adapter">
+          <button id="btn-apply-demo" type="button" class="btn-apply">Apply State ⚡</button>
         </div>
       </div>
     </section>
