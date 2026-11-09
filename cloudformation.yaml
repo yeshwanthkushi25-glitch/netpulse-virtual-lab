@@ -15,6 +15,7 @@ Parameters:
 
 Conditions:
   IsInLearnerLab: !Equals [!Ref UseLabRole, 'true']
+  CreateCustomRole: !Equals [!Ref UseLabRole, 'false']
 
 Resources:
   # 1. DynamoDB Table
@@ -33,7 +34,7 @@ Resources:
   # 2. IAM Role for Lambda (Created only if NOT in Learner Lab)
   CustomLambdaRole:
     Type: AWS::IAM::Role
-    Condition: !Equals [!Ref UseLabRole, 'false']
+    Condition: CreateCustomRole
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'

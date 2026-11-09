@@ -3,6 +3,12 @@
 **Project No. 33 · Team NetPulse · Batch 59**  
 **Target Cloud Environment**: AWS Learner Lab (`us-east-1`) & VirtualBox Virtual Machines
 
+### 🌐 Live AWS Cloud Deployment (Active & Running)
+* 🖥️ **Live S3 Web Dashboard**: [http://netpulse-lab-dashboardbucket-kx1j5ydkvrlg.s3-website-us-east-1.amazonaws.com](http://netpulse-lab-dashboardbucket-kx1j5ydkvrlg.s3-website-us-east-1.amazonaws.com)
+* 🌐 **Live AWS API Gateway**: [`https://j0waaiip5e.execute-api.us-east-1.amazonaws.com`](https://j0waaiip5e.execute-api.us-east-1.amazonaws.com/status?target=all)
+* 📦 **Amazon DynamoDB Table**: `netpulse-lab-status` (Region: `us-east-1`)
+* ⚡ **AWS CloudFormation Stack**: `netpulse-lab` (`CREATE_COMPLETE`)
+
 ---
 
 ## 📸 Visual Demos & Screenshots Showcase

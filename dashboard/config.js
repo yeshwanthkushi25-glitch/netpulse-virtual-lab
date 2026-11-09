@@ -1,7 +1,7 @@
-// Local demo uses the same origin. AWS deployment writes the API URL here.
+// NetPulse AWS Production Configuration
 window.NETPULSE_CONFIG = {
-  apiUrl: "",
+  apiUrl: "https://j0waaiip5e.execute-api.us-east-1.amazonaws.com",
   source: "vm-a",
   target: "vm-b",
-  refreshIntervalMs: 10000
+  refreshIntervalMs: 3000
 };
