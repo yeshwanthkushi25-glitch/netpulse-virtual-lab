@@ -39,6 +39,7 @@ FILES_TO_INCLUDE = [
 
     # Scripts
     ("scripts/local_demo.py", "scripts/local_demo.py"),
+    ("scripts/deploy_aws.py", "scripts/deploy_aws.py"),
     ("scripts/capture_screenshots.py", "scripts/capture_screenshots.py"),
     ("scripts/generate_docs.py", "scripts/generate_docs.py"),
     ("scripts/generate_presentation.py", "scripts/generate_presentation.py"),

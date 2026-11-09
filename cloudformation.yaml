@@ -134,8 +134,8 @@ Resources:
                       src = _identifier(data.get("source"), "source")
                       tgt = _identifier(data.get("target"), "target")
                       status = data.get("status")
-                      if status not in ("up", "down"):
-                          raise ValueError("status must be up or down")
+                      if status not in ("up", "down", "degraded"):
+                          raise ValueError("status must be up, down, or degraded")
                       latency = data.get("latency_ms")
                       if latency is not None:
                           latency = Decimal(str(round(float(latency), 3)))
@@ -154,6 +154,10 @@ Resources:
 
                   if method == "GET":
                       params = event.get("queryStringParameters") or {}
+                      if not params or params.get("target") == "all":
+                          res = _table().scan(Limit=50)
+                          items = res.get("Items", [])
+                          return _response(200, {"ok": True, "connections": items, "count": len(items)})
                       src = _identifier(params.get("source", "vm-a"), "source")
                       tgt = _identifier(params.get("target", "vm-b"), "target")
                       res = _table().get_item(Key={"connection_id": f"{src}#{tgt}"}, ConsistentRead=True)
