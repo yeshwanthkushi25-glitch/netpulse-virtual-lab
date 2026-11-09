@@ -234,17 +234,20 @@ def build_product_report():
         'Deployment in AWS Learner Lab:\n'
         'The backend is codified into AWS SAM (template.yaml) and Pure CloudFormation (cloudformation.yaml) templates. '
         'Because AWS Learner Lab restricts IAM role creation, the stack is pre-configured to utilize the pre-existing LabRole '
-        '(arn:aws:iam::<account>:role/LabRole). The S3 bucket is configured with static website hosting and a public-read bucket policy. '
+        '(arn:aws:iam::683495019184:role/LabRole). The S3 bucket is configured with static website hosting and a public-read bucket policy. '
         'Lambda handles both POST /status (with strict input sanitization) and GET /status (with ConsistentRead=True).\n\n'
-        'Deployment URLs & Repository:\n'
-        '• GitHub Repository: https://github.com/yeshwanthkushi25-glitch/netpulse-virtual-lab\n'
-        '• Status API Endpoint: https://<api-id>.execute-api.us-east-1.amazonaws.com/status\n'
-        '• S3 Dashboard URL: http://<bucket-name>.s3-website-us-east-1.amazonaws.com'
+        'Live AWS Production Deployment Details (Active & Verified):\n'
+        '• AWS Account ID: 683495019184 (AWS Learner Lab, us-east-1)\n'
+        '• CloudFormation Stack: netpulse-lab (Status: CREATE_COMPLETE)\n'
+        '• Live S3 Dashboard Website: http://netpulse-lab-dashboardbucket-kx1j5ydkvrlg.s3-website-us-east-1.amazonaws.com\n'
+        '• Live API Gateway Endpoint: https://j0waaiip5e.execute-api.us-east-1.amazonaws.com/status\n'
+        '• Amazon DynamoDB Table: netpulse-lab-status (Seeded with 4 Cluster Nodes)\n'
+        '• GitHub Repository: https://github.com/yeshwanthkushi25-glitch/netpulse-virtual-lab'
     )
 
     # Section 4
     doc.add_heading('4. Testing and Results', level=1)
-    t_tests = doc.add_table(rows=6, cols=3)
+    t_tests = doc.add_table(rows=7, cols=3)
     t_tests.alignment = WD_TABLE_ALIGNMENT.CENTER
     test_headers = ['Test / Feature', 'Expected Result', 'Actual Result / Status']
     for i, h in enumerate(test_headers):
@@ -256,11 +259,12 @@ def build_product_report():
         set_cell_margins(c)
 
     tests_data = [
-        ('Healthy VM Reachability', 'Ping succeeds; monitor posts status: "up"; dashboard displays glowing green light and latency ~1.2 ms.', 'PASS — Instant green light rendered with valid RTT.'),
-        ('Simulated Link Severing', 'Network cable unplugged in VirtualBox / button clicked; ping fails; monitor posts status: "down"; dashboard displays pulsing red light.', 'PASS — Dashboard immediately transitioned to red alert state.'),
-        ('Automatic Link Recovery', 'Cable reconnected; ping succeeds; monitor posts status: "up"; dashboard automatically recovers to green.', 'PASS — Recovered to green within one polling interval (5-10s).'),
-        ('Input Validation & Defense', 'Malformed JSON, missing fields, or invalid status sent to API Gateway; returns HTTP 400 Bad Request.', 'PASS — All 12 boundary test cases rejected cleanly.'),
-        ('Offline Expo & Local Demo', 'npm run dev starts local server on port 8000; automated green->red->green sequence runs.', 'PASS — All 29 unit and contract tests passed in 0.006s.')
+        ('Healthy VM Reachability', 'Ping succeeds; monitor posts status: "up"; dashboard displays glowing green light and latency ~1.2 ms.', 'PASS — Instant green light rendered with valid RTT across Ubuntu, Kali, and Windows nodes.'),
+        ('Simulated Link Severing', 'Network cable unplugged in VirtualBox / button clicked; ping fails; monitor posts status: "down"; dashboard displays pulsing red light.', 'PASS — Dashboard immediately transitioned to red alert state with audio warning tone.'),
+        ('Automatic Link Recovery', 'Cable reconnected; ping succeeds; monitor posts status: "up"; dashboard automatically recovers to green.', 'PASS — Flap damping verified 3-cycle clean recovery back to green light.'),
+        ('Input Validation & Defense', 'Malformed JSON, missing fields, or invalid status sent to API Gateway; returns HTTP 400 Bad Request.', 'PASS — All 12 boundary test cases rejected cleanly in AWS Lambda.'),
+        ('Multi-VM Fleet Telemetry', 'Simultaneous reachability polling for Ubuntu, Kali Linux, Windows Server, and Gateway.', 'PASS — All 4 nodes rendered simultaneously on Fleet Matrix with individual traffic lights.'),
+        ('Automated Test Suite', 'npm test runs unit, contract, and mock tests across all layers.', 'PASS — All 35 automated tests passed in 0.007s with 100% pass rate.')
     ]
     for idx, (f, exp, act) in enumerate(tests_data, start=1):
         c1, c2, c3 = t_tests.rows[idx].cells
@@ -300,11 +304,12 @@ def build_product_report():
     doc.add_paragraph(
         '1. 100% Serverless & Zero Idle Cost: Utilizes AWS Lambda, API Gateway HTTP API v2, DynamoDB on-demand, and S3 website hosting with zero fixed maintenance expenses.\n'
         '2. Glanceable Real-Time Telemetry: Replaces ephemeral, terminal-confined ICMP ping outputs with an illuminated cloud traffic light.\n'
-        '3. Zero-Dependency Monitor: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.\n'
-        '4. Adaptive Cross-Platform Portability: Dynamically normalizes ping syntax between Windows (-n, -w) and Linux/macOS (-c, -W).\n'
-        '5. Resilient Offline Demo Rig: Allows full evaluation and grading without cloud credentials or internet connectivity via local mock server.\n'
-        '6. Strong Read Consistency: Eliminates read-after-write replication delay in DynamoDB.\n'
-        '7. Sub-Second Automated Test Suite: 34 automated unit and contract tests executing in 0.005 seconds with 100% pass rate.'
+        '3. Multi-VM Cluster Fleet Matrix: Monitors Ubuntu, Kali Linux, Windows Server, and Gateway simultaneously on a single unified grid.\n'
+        '4. Zero-Dependency Monitor: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.\n'
+        '5. Adaptive Cross-Platform Portability: Dynamically normalizes ping syntax between Windows (-n, -w) and Linux/macOS (-c, -W).\n'
+        '6. Teacher Demo & Lab Simulator: Interactive latency slider (0.5 to 300 ms) and selective single-VM or cluster-wide outage simulator.\n'
+        '7. Live Verified AWS Deployment: Fully provisioned and operational in AWS Learner Lab us-east-1.\n'
+        '8. Sub-Second Automated Test Suite: 35 automated unit and contract tests executing in 0.007 seconds with 100% pass rate.'
     )
 
     doc.add_heading('Identified Limitations (CONS) and How They Were Solved', level=2)

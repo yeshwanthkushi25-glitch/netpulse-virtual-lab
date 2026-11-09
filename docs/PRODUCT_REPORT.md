@@ -134,10 +134,12 @@ NetPulse delivers a software-defined, serverless network monitoring system that 
 - Complete infrastructure is codified in both `template.yaml` (AWS SAM) and `cloudformation.yaml` (Standalone CloudFormation for AWS Learner Lab).
 - Supports AWS Learner Lab execution via default parameter mapping to existing `LabRole`.
 
-### Deployment URLs & Project Links
+### Live AWS Production Deployment URLs & Project Links
+- **Live S3 Dashboard Website**: [http://netpulse-lab-dashboardbucket-kx1j5ydkvrlg.s3-website-us-east-1.amazonaws.com](http://netpulse-lab-dashboardbucket-kx1j5ydkvrlg.s3-website-us-east-1.amazonaws.com)
+- **Live AWS API Gateway**: [`https://j0waaiip5e.execute-api.us-east-1.amazonaws.com/status`](https://j0waaiip5e.execute-api.us-east-1.amazonaws.com/status?target=all)
+- **Amazon DynamoDB Table**: `netpulse-lab-status` (Region: `us-east-1`, 4 Cluster Nodes Seeded)
+- **AWS CloudFormation Stack**: `netpulse-lab` (Status: `CREATE_COMPLETE`, Account ID: `683495019184`)
 - **GitHub Repository**: [https://github.com/yeshwanthkushi25-glitch/netpulse-virtual-lab](https://github.com/yeshwanthkushi25-glitch/netpulse-virtual-lab)
-- **Deployment Endpoint**: AWS API Gateway `https://<api-id>.execute-api.us-east-1.amazonaws.com/status`
-- **Dashboard URL**: S3 Static Website Endpoint `http://<bucket-name>.s3-website-us-east-1.amazonaws.com`
 
 ---
 
@@ -170,9 +172,9 @@ The project was evaluated through offline unit test suites, integration tests, a
 ![NetPulse Architecture Diagram](screenshots/architecture-diagram.png)
 
 ### Unit Test Verification
-An automated test suite (`tests/test_lambda.py`, `tests/test_monitor.py`, `tests/test_local_server.py`) with 29 test cases was executed:
+An automated test suite (`tests/test_lambda.py`, `tests/test_monitor.py`, `tests/test_local_server.py`) with 35 test cases was executed:
 ```text
-Ran 29 tests in 0.006s
+Ran 35 tests in 0.007s
 OK
 ```
 
@@ -183,11 +185,12 @@ OK
 ### Project Strengths (PROS)
 1. **100% Serverless & Zero Idle Cost**: Leverages AWS Lambda, API Gateway HTTP API v2, DynamoDB on-demand, and Amazon S3 static website hosting with zero fixed maintenance expenses.
 2. **Glanceable Real-Time Telemetry**: Replaces ephemeral, terminal-confined ICMP ping outputs with an illuminated cloud traffic light.
-3. **Zero-Dependency Monitor**: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.
-4. **Adaptive Cross-Platform Portability**: Dynamically normalizes ping syntax between Windows (`-n`, `-w`) and Linux/macOS (`-c`, `-W`).
-5. **Resilient Offline Demo Rig**: Allows full evaluation and grading without cloud credentials or internet connectivity via local mock server.
-6. **Strong Read Consistency**: Eliminates read-after-write replication delay in DynamoDB via `ConsistentRead=True`.
-7. **Sub-Second Automated Test Suite**: 34 automated unit and contract tests executing in 0.005 seconds with 100% pass rate.
+3. **Multi-VM Cluster Fleet Matrix**: Simultaneously monitors Ubuntu, Kali Linux, Windows Server, and Host Gateway on a unified real-time grid.
+4. **Zero-Dependency Monitor**: Built strictly with Python standard library, eliminating pip installation overhead on lab virtual machines.
+5. **Adaptive Cross-Platform Portability**: Dynamically normalizes ping syntax between Windows (`-n`, `-w`) and Linux/macOS (`-c`, `-W`).
+6. **Teacher Demo & Lab Simulator**: Interactive latency slider (0.5 to 300 ms) and selective single-VM or cluster-wide outage simulator.
+7. **Live Verified AWS Cloud Deployment**: Fully provisioned, tested, and running in AWS Learner Lab (`us-east-1`, Account: `683495019184`).
+8. **Sub-Second Automated Test Suite**: 35 automated unit and contract tests executing in 0.007 seconds with 100% pass rate.
 
 ### Identified Limitations (CONS) and How They Were Solved
 
