@@ -135,9 +135,26 @@ def send_status(api_url, result, api_key=None, timeout=10):
         raise RuntimeError(f"Could not reach the NetPulse API: {exc.reason}") from exc
 
 
+def get_target_list(args):
+    """Extract list of unique targets from --target or --targets."""
+    targets = []
+    if getattr(args, "targets", None):
+        for t in args.targets:
+            clean = t.strip()
+            if clean and clean not in targets:
+                targets.append(clean)
+    if getattr(args, "target", None):
+        for t in args.target.split(","):
+            clean = t.strip()
+            if clean and clean not in targets:
+                targets.append(clean)
+    return targets
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="NetPulse virtual lab reachability monitor")
-    parser.add_argument("--target", default=os.environ.get("NETPULSE_TARGET"), help="VM B hostname or IP address")
+    parser.add_argument("--target", default=os.environ.get("NETPULSE_TARGET"), help="VM target hostname/IP (or comma-separated for multiple VMs)")
+    parser.add_argument("--targets", nargs="+", default=None, help="List of target hostnames or IP addresses")
     parser.add_argument("--source", default=os.environ.get("NETPULSE_SOURCE", socket.gethostname()), help="VM A display name")
     parser.add_argument("--api-url", default=os.environ.get("NETPULSE_API_URL"), help="API base URL, without /status")
     parser.add_argument("--api-key", default=os.environ.get("NETPULSE_API_KEY"), help="Optional API key for authorization")
@@ -148,8 +165,10 @@ def parse_args(argv=None):
     parser.add_argument("--dry-run", action="store_true", help="Print JSON without sending it")
     parser.add_argument("--simulate", choices=("up", "down", "degraded"), help="Simulate a result instead of running ping")
     args = parser.parse_args(argv)
-    if not args.target:
-        parser.error("--target or NETPULSE_TARGET is required")
+    if not args.target and not args.targets:
+        parser.error("--target or --targets or NETPULSE_TARGET is required")
+    if not args.target and args.targets:
+        args.target = args.targets[0]
     if not args.dry_run and not args.api_url:
         parser.error("--api-url or NETPULSE_API_URL is required unless --dry-run is used")
     if args.interval <= 0 or args.timeout <= 0:
@@ -159,33 +178,35 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    fail_count = 0
+    targets = get_target_list(args)
+    fail_counts = {t: 0 for t in targets}
     try:
         while True:
-            try:
-                # Test ping to track fail_count
-                if not args.simulate:
-                    is_up, _, _ = run_ping(args.target, args.timeout)
-                    fail_count = 0 if is_up else (fail_count + 1)
+            for target in targets:
+                try:
+                    # Test ping to track fail_count
+                    if not args.simulate:
+                        is_up, _, _ = run_ping(target, args.timeout)
+                        fail_counts[target] = 0 if is_up else (fail_counts[target] + 1)
 
-                result = build_result(
-                    source=args.source,
-                    target=args.target,
-                    timeout=args.timeout,
-                    simulate=args.simulate,
-                    consecutive_failures=fail_count,
-                    threshold=args.consecutive_failures,
-                )
-                payload = asdict(result)
-                if args.dry_run:
-                    print(json.dumps(payload, indent=2))
-                else:
-                    send_status(args.api_url, result, api_key=args.api_key)
-                    print(json.dumps(payload), flush=True)
-            except (RuntimeError, ValueError) as exc:
-                print(f"NetPulse error: {exc}", file=sys.stderr, flush=True)
-                if args.once:
-                    return 1
+                    result = build_result(
+                        source=args.source,
+                        target=target,
+                        timeout=args.timeout,
+                        simulate=args.simulate,
+                        consecutive_failures=fail_counts[target],
+                        threshold=args.consecutive_failures,
+                    )
+                    payload = asdict(result)
+                    if args.dry_run:
+                        print(json.dumps(payload, indent=2))
+                    else:
+                        send_status(args.api_url, result, api_key=args.api_key)
+                        print(json.dumps(payload), flush=True)
+                except (RuntimeError, ValueError) as exc:
+                    print(f"NetPulse error for {target}: {exc}", file=sys.stderr, flush=True)
+                    if args.once and len(targets) == 1:
+                        return 1
             if args.once:
                 return 0
             time.sleep(args.interval)

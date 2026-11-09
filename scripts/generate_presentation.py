@@ -283,13 +283,13 @@ def create_presentation():
 
     add_bullet_card(
         s7, Inches(0.8), Inches(1.8), Inches(5.6), Inches(5.0),
-        "Dashboard Capabilities",
+        "Multi-VM Fleet Telemetry",
         [
-            "Glanceable Visual States: Glowing Green (Up), Pulsing Amber (Degraded), Flashing Red (Down).",
+            "Cluster Fleet Matrix: Real-time reachability grid across Ubuntu, Kali Linux, Windows Server & Gateway.",
+            "Dynamic VM Focus: Click any VM in the grid to isolate and inspect its latency and traffic light.",
             "Synthesized Audio Chime: Uses Web Audio API to play alert tones on status transitions.",
-            "Telemetry Sparkline: Visualizes latency trends across the last 10 ICMP check cycles.",
-            "Uptime Reliability Counter: Calculates real-time connection uptime percentage.",
-            "Auto-Polling Engine: Refreshes telemetry seamlessly with visual heartbeat dot."
+            "Telemetry Sparklines: Visualizes latency trends across the last 10 ICMP check cycles.",
+            "Uptime Reliability Counter: Calculates real-time connection uptime percentage per node."
         ],
         COLOR_ACCENT_GREEN
     )
@@ -299,10 +299,10 @@ def create_presentation():
         "Teacher Demo Controller & Latency Slider",
         [
             "Built-in Teacher Demo Rig: No physical ESP32 or breadboards needed.",
+            "Per-VM or Cluster Simulation: Disconnect/degrade single VMs or trigger cluster-wide outages.",
             "Interactive Latency Slider: Drag slider (0.5 ms - 300 ms) to adjust latency live.",
             "Numeric Input & Presets: One-click LAN (0.8ms), Lab (2.4ms), WAN (52ms), Jitter (185ms).",
-            "Instant Disconnect / Connect: Cut link to trigger Red alert chime, reconnect for Green.",
-            "Custom Diagnostic Reason: Type custom messages to demonstrate failure reasons."
+            "Instant Disconnect / Connect: Cut link to trigger Red alert chime, reconnect for Green."
         ],
         COLOR_ACCENT_AMBER
     )

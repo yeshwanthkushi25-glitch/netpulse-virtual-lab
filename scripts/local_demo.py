@@ -125,7 +125,7 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/status":
             params = urllib.parse.parse_qs(parsed.query)
-            if not params:
+            if not params or params.get("target", [""])[0] == "all":
                 self._send_json(200, {"ok": True, "connections": list(STORE.values()), "count": len(STORE)})
                 return
             source = params.get("source", ["vm-a"])[0]
@@ -179,6 +179,20 @@ class NetPulseHandler(http.server.BaseHTTPRequestHandler):
             raw_body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
             try:
                 data = json.loads(raw_body)
+                if data.get("target") == "all":
+                    updated_items = []
+                    for k in list(STORE.keys()):
+                        src, tgt = k.split("#", 1)
+                        sub_data = dict(data)
+                        sub_data["source"] = src
+                        sub_data["target"] = tgt
+                        item = validate_payload(sub_data)
+                        STORE[k] = item
+                        updated_items.append(item)
+                    print(f"  [CLUSTER UPDATE] All {len(updated_items)} VMs updated to {data.get('status', 'up').upper()}")
+                    self._send_json(200, {"ok": True, "items": updated_items, "count": len(updated_items)})
+                    return
+
                 item = validate_payload(data)
                 STORE[item["connection_id"]] = item
 
@@ -252,9 +266,24 @@ def main():
     parser.add_argument("--target", default="vm-b", help="Default target VM name (default: vm-b)")
     args = parser.parse_args()
 
-    # Pre-populate store
+    # Pre-populate store with multi-VM lab cluster nodes
+    STORE["vm-a#vm-b"] = make_item(
+        "vm-a", "vm-b", "up", 1.25, "Ubuntu 24.04 Target VM responding normally."
+    )
+    STORE["vm-a#kali-linux"] = make_item(
+        "vm-a", "kali-linux", "up", 0.85, "Kali Linux Lab VM operational on host-only bridge."
+    )
+    STORE["vm-a#win-server"] = make_item(
+        "vm-a", "win-server", "up", 2.10, "Windows Server Lab Node responding to ICMP."
+    )
+    STORE["vm-a#lab-gateway"] = make_item(
+        "vm-a", "lab-gateway", "up", 0.45, "VirtualBox Host Default Gateway reachable."
+    )
+
+    # Pre-populate custom args if different
     key = f"{args.source}#{args.target}"
-    STORE[key] = make_item(args.source, args.target, "up", 1.25, "VirtualBox lab link operational.")
+    if key not in STORE:
+        STORE[key] = make_item(args.source, args.target, "up", 1.25, "VirtualBox lab link operational.")
 
     server = ThreadedTCPServer((args.host, args.port), NetPulseHandler)
     local_url = f"http://localhost:{args.port}"

@@ -30,6 +30,26 @@
       <p class="intro">A shared real-time telemetry dashboard for VirtualBox lab machines. Transforms invisible command-line ICMP ping output into an instantaneous cloud-hosted traffic light.</p>
     </section>
 
+    <!-- MULTI-VM LAB FLEET MATRIX -->
+    <section class="fleet-section" aria-label="Virtual Lab Multi-VM Fleet Overview">
+      <div class="fleet-header">
+        <div class="fleet-title-wrap">
+          <span class="fleet-badge">CLUSTER TELEMETRY</span>
+          <h2 class="fleet-title">Virtual Lab Multi-VM Fleet Matrix</h2>
+          <p class="fleet-sub">Simultaneous reachability tracking across all virtual machines on the lab subnet (Ubuntu, Kali Linux, Windows Server & Host Gateway).</p>
+        </div>
+        <div class="fleet-stats">
+          <div class="stat-pill"><span class="stat-dot dot-green"></span> <span id="fleet-online-count">4</span> Online</div>
+          <div class="stat-pill"><span class="stat-dot dot-amber"></span> <span id="fleet-degraded-count">0</span> Degraded</div>
+          <div class="stat-pill"><span class="stat-dot dot-red"></span> <span id="fleet-down-count">0</span> Offline</div>
+        </div>
+      </div>
+
+      <div id="fleet-grid" class="fleet-grid">
+        <!-- Fleet cards are populated dynamically via app.js -->
+      </div>
+    </section>
+
     <section class="monitor-card" aria-label="Virtual machine connection monitor">
       <div class="route-row">
         <div class="machine">
@@ -43,9 +63,17 @@
           <span class="route-line"></span><span class="route-node"></span>
         </div>
         <div class="machine machine-right">
-          <span class="machine-label">TARGET VM</span>
-          <strong id="target">vm-b</strong>
-          <span class="machine-subtitle">Destination Host (192.168.56.102)</span>
+          <span class="machine-label">TARGET VM (SELECT TO FOCUS)</span>
+          <div class="target-select-wrap">
+            <select id="target-select" class="target-select" aria-label="Target VM selector">
+              <option value="vm-b">Ubuntu Target (vm-b · 192.168.56.102)</option>
+              <option value="kali-linux">Kali Linux (kali-linux · 192.168.56.103)</option>
+              <option value="win-server">Windows Server (win-server · 192.168.56.104)</option>
+              <option value="lab-gateway">Host Gateway (lab-gateway · 192.168.56.1)</option>
+            </select>
+          </div>
+          <strong id="target" style="display:none;">vm-b</strong>
+          <span id="target-subtitle" class="machine-subtitle">Destination Host (192.168.56.102)</span>
         </div>
       </div>
 
@@ -93,6 +121,21 @@
         </div>
 
         <!-- Connection state buttons -->
+        <div class="sim-target-row">
+          <div class="sim-target-label-group">
+            <label for="sim-target-select" class="sim-target-label">SIMULATION TARGET:</label>
+            <span class="sim-target-hint">Pick which lab VM to alter</span>
+          </div>
+          <select id="sim-target-select" class="sim-target-select" aria-label="Target VM to simulate">
+            <option value="current">Current Focused VM</option>
+            <option value="vm-b">Ubuntu Target (vm-b · 192.168.56.102)</option>
+            <option value="kali-linux">Kali Linux PenTest (kali-linux · 192.168.56.103)</option>
+            <option value="win-server">Windows Server (win-server · 192.168.56.104)</option>
+            <option value="lab-gateway">Host Gateway (lab-gateway · 192.168.56.1)</option>
+            <option value="all">⚡ ALL VMs SIMULTANEOUSLY (Lab Outage)</option>
+          </select>
+        </div>
+
         <div class="ctrl-buttons-row">
           <button id="btn-demo-connect" type="button" class="btn-ctrl btn-connect">
             <span class="btn-dot dot-green"></span> Connect Link (Green)

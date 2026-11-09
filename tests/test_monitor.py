@@ -106,6 +106,17 @@ class MonitorNetworkTests(unittest.TestCase):
         self.assertTrue(args.once)
         self.assertEqual(args.consecutive_failures, 2)
 
+    def test_multi_target_cli_parsing(self):
+        # Test comma-separated target string
+        args = monitor.parse_args(["--target", "vm-b,kali-linux,192.168.56.104", "--dry-run", "--once"])
+        targets = monitor.get_target_list(args)
+        self.assertEqual(targets, ["vm-b", "kali-linux", "192.168.56.104"])
+
+        # Test --targets list
+        args2 = monitor.parse_args(["--targets", "ubuntu-node", "win-server", "--dry-run", "--once"])
+        targets2 = monitor.get_target_list(args2)
+        self.assertEqual(targets2, ["ubuntu-node", "win-server"])
+
 
 if __name__ == "__main__":
     unittest.main()
