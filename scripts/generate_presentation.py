@@ -296,13 +296,13 @@ def create_presentation():
 
     add_bullet_card(
         s7, Inches(6.8), Inches(1.8), Inches(5.6), Inches(5.0),
-        "Interactive Expo Simulation Controls",
+        "Teacher Demo Controller & Latency Slider",
         [
-            "No ESP32 Required: Implements instructor guideline to use web buttons.",
-            "One-Click 'Link Operational': Posts healthy status (Green light with ~1.2 ms RTT).",
-            "One-Click 'Simulate Degraded': Posts jitter telemetry (Amber light with ~48 ms RTT).",
-            "One-Click 'Simulate Link Cut': Posts failure telemetry (Red alert light).",
-            "Offline Fallback: Works seamlessly both against AWS cloud and offline locally."
+            "Built-in Teacher Demo Rig: No physical ESP32 or breadboards needed.",
+            "Interactive Latency Slider: Drag slider (0.5 ms - 300 ms) to adjust latency live.",
+            "Numeric Input & Presets: One-click LAN (0.8ms), Lab (2.4ms), WAN (52ms), Jitter (185ms).",
+            "Instant Disconnect / Connect: Cut link to trigger Red alert chime, reconnect for Green.",
+            "Custom Diagnostic Reason: Type custom messages to demonstrate failure reasons."
         ],
         COLOR_ACCENT_AMBER
     )
